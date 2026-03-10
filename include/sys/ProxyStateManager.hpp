@@ -78,6 +78,7 @@ private:
     void transitionToDirect();
     void transitionToProxy();
     void transitionToBlock();
+    void removeBlockRoutes();
 
     // Post-transition validation
     bool validateRoutingTable();

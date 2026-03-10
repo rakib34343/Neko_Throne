@@ -208,6 +208,7 @@ DialogBasicSettings::DialogBasicSettings(QWidget *parent)
 
     D_LOAD_BOOL(skip_cert)
     ui->utlsFingerprint->setCurrentText(Configs::dataStore->utlsFingerprint);
+
 }
 
 DialogBasicSettings::~DialogBasicSettings() {

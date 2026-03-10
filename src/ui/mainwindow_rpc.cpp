@@ -15,6 +15,7 @@
 #include "include/configs/generate.h"
 #include "include/sys/Process.hpp"
 #include "include/sys/NetworkLeakGuard.hpp"
+#include "include/sys/ProxyStateManager.hpp"
 
 // rpc
 
@@ -27,6 +28,20 @@ void MainWindow::setup_rpc() {
             MW_show_log("[Error] Core: " + errStr);
         },
         "127.0.0.1:" + Int2String(Configs::dataStore->core_port));
+
+    // ProxyStateManager signals
+    auto psm = ProxyStateManager::instance();
+    connect(psm, &ProxyStateManager::modeChanged, psm, [](ProxyMode mode) {
+        const char *names[] = {"Direct", "Proxy", "Block"};
+        MW_show_log(QString("[ProxyState] Mode changed to %1").arg(names[static_cast<int>(mode)]));
+    });
+    connect(psm, &ProxyStateManager::modeChangeFailed, psm, [](ProxyMode attempted, const QString &reason) {
+        Q_UNUSED(attempted)
+        MW_show_log("[ProxyState] Mode change failed: " + reason);
+    });
+    connect(psm, &ProxyStateManager::killSwitchStateChanged, psm, [](bool active) {
+        MW_show_log(QString("[ProxyState] Kill switch %1").arg(active ? "ACTIVATED" : "deactivated"));
+    });
 
     // Looper
     runOnNewThread([=] { Stats::trafficLooper->Loop(); });

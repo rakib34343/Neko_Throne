@@ -337,6 +337,41 @@
               </item>
               <item>
                <property name="text">
+                <string notr="true">https://dns.google/dns-query</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">https://cloudflare-dns.com/dns-query</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">h3://dns.google/dns-query</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">h3://cloudflare-dns.com/dns-query</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">quic://dns.adguard-dns.com</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">quic://unfiltered.adguard-dns.com</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">tls://dns.adguard-dns.com</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
                 <string notr="true">8.8.8.8</string>
                </property>
               </item>
@@ -372,9 +407,9 @@
           <item row="2" column="0">
            <widget class="QLabel" name="label_8">
             <property name="toolTip">
-             <string>This is especially important and it is recommended to use the default value of &quot;localhost&quot;.
-If the default value does not work, try changing it to &quot;223.5.5.5&quot;.
-For more information, see the document &quot;Configuration/DNS&quot;.</string>
+             <string>Default: &quot;localhost&quot; (system DNS).
+If it does not work, try &quot;tls://8.8.8.8&quot; or &quot;223.5.5.5&quot;.
+Supported: plain IP, tls://, https://, h3://, quic://, tcp://, dhcp://</string>
             </property>
             <property name="text">
              <string>Direct DNS</string>
@@ -401,6 +436,31 @@ For more information, see the document &quot;Configuration/DNS&quot;.</string>
               </item>
               <item>
                <property name="text">
+                <string notr="true">tls://8.8.8.8</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">tls://1.1.1.1</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">https://dns.google/dns-query</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">h3://dns.google/dns-query</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">quic://dns.adguard-dns.com</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
                 <string notr="true">223.5.5.5</string>
                </property>
               </item>
@@ -417,6 +477,11 @@ For more information, see the document &quot;Configuration/DNS&quot;.</string>
               <item>
                <property name="text">
                 <string notr="true">77.88.8.8</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string notr="true">tls://77.88.8.8</string>
                </property>
               </item>
              </widget>

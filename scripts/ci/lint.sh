@@ -111,6 +111,22 @@ if cmake -P /dev/null 2>/dev/null; then
     rm -rf /tmp/throne-lint-cmake-check
 fi
 
+# ─── XML validation (.qrc and .ui files) ─────────────────────────────────────
+echo ""
+echo ">> Validating .qrc and .ui XML files..."
+if command -v xmllint &>/dev/null || (command -v apt-get &>/dev/null && sudo apt-get install -y -qq libxml2-utils >/dev/null 2>&1); then
+    XML_ERRORS=0
+    while IFS= read -r xmlfile; do
+        if ! xmllint --noout "$xmlfile" 2>>"${LINT_LOG}"; then
+            echo ">> XML error in: $xmlfile" | tee -a "${LINT_LOG}"
+            XML_ERRORS=$((XML_ERRORS + 1))
+        fi
+    done < <(find "${REPO_ROOT}" -type f \( -name '*.qrc' -o -name '*.ui' \) ! -path '*/build/*' 2>/dev/null)
+    echo ">> XML validation: ${XML_ERRORS} error(s) found."
+else
+    echo ">> SKIP: xmllint not available"
+fi
+
 # ─── Summary ──────────────────────────────────────────────────────────────────
 echo ""
 echo "═══════════════════════════════════════════════════"

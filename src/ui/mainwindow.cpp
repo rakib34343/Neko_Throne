@@ -4,6 +4,7 @@
 #include "include/configs/sub/GroupUpdater.hpp"
 #include "include/sys/Process.hpp"
 #include "include/sys/NetworkLeakGuard.hpp"
+#include "include/sys/ProxyStateManager.hpp"
 #include "include/sys/AutoRun.hpp"
 
 #include "include/ui/setting/ThemeManager.hpp"
@@ -872,9 +873,17 @@ void MainWindow::dialog_message_impl(const QString &sender, const QString &info)
         }
     } else if (sender == "ExternalProcess") {
         if (info == "Crashed") {
+            // Activate kill switch to prevent traffic leaks during crash
+            if (Configs::dataStore->spmode_vpn || Configs::dataStore->spmode_system_proxy) {
+                ProxyStateManager::instance()->activateKillSwitch();
+            }
             profile_stop();
         } else if (info.startsWith("CoreStarted")) {
             Configs::IsAdmin(true);
+            // Deactivate kill switch if it was activated during crash
+            if (ProxyStateManager::instance()->isKillSwitchActive()) {
+                ProxyStateManager::instance()->deactivateKillSwitch();
+            }
             if (Configs::dataStore->remember_spmode.contains("system_proxy")) {
                 set_spmode_system_proxy(true, false);
             }
@@ -1021,6 +1030,11 @@ void MainWindow::prepare_exit()
     // Ensure IPv6 and leak guard are restored before exit
     NetworkLeakGuard::instance()->stopMonitoring();
     NetworkLeakGuard::instance()->restoreIPv6();
+
+    // Deactivate kill switch and ensure clean proxy state
+    if (ProxyStateManager::instance()->isKillSwitchActive()) {
+        ProxyStateManager::instance()->deactivateKillSwitch();
+    }
 
     mu_exit.unlock();
     qDebug() << "prepare exit done!";
