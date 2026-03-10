@@ -180,14 +180,15 @@ RouteItem::RouteItem(QWidget *parent, const std::shared_ptr<Configs::RoutingChai
 
     connect(ui->route_import_json, &QPushButton::clicked, this, [=,this] {
         auto w = new QDialog(this);
+        w->setAttribute(Qt::WA_DeleteOnClose);  // Ensure cleanup when dialog is closed
         w->setWindowTitle(tr("Import JSON Array"));
         w->setWindowModality(Qt::ApplicationModal);
 
         auto line = 0;
-        auto layout = new QGridLayout;
+        auto layout = new QGridLayout(w);
         w->setLayout(layout);
 
-        auto *tEdit = new QTextEdit;
+        auto *tEdit = new QTextEdit(w);
         tEdit->setPlaceholderText("[\n"
             "      {\n"
             "        \"action\": \"hijack-dns\",\n"

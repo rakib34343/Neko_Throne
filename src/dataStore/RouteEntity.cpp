@@ -576,6 +576,80 @@ namespace Configs {
             obj["rule_set"] = jarray;
             return obj;
         };
+        
+        // Helper function to expand dtorrent protocol into multiple rules
+        auto expandDTorrentRule = [](const QJsonObject& baseRule) -> QJsonArray {
+            QJsonArray expandedRules;
+            
+            // Get base properties
+            QString action = baseRule["action"].toString();
+            QString outbound = baseRule["outbound"].toString();
+            
+            // 1. Protocol-based detection (bittorrent sniffing)
+            QJsonObject protocolRule = baseRule;
+            protocolRule["protocol"] = "bittorrent";
+            expandedRules.append(protocolRule);
+            
+            // 2. UDP ports (uTP, DHT)
+            QJsonObject udpRule;
+            udpRule["action"] = action;
+            if (!outbound.isEmpty()) udpRule["outbound"] = outbound;
+            udpRule["network"] = "udp";
+            QJsonArray udpPorts;
+            udpPorts.append("6881:6889");
+            udpPorts.append("51413");
+            udpRule["port_range"] = udpPorts;
+            expandedRules.append(udpRule);
+            
+            // 3. TCP ports (BitTorrent)
+            QJsonObject tcpRule;
+            tcpRule["action"] = action;
+            if (!outbound.isEmpty()) tcpRule["outbound"] = outbound;
+            tcpRule["network"] = "tcp";
+            QJsonArray tcpPorts;
+            tcpPorts.append("6881:6889");
+            tcpPorts.append("51413");
+            tcpRule["port_range"] = tcpPorts;
+            expandedRules.append(tcpRule);
+            
+            // 4. Process-based detection
+            QJsonObject processRule;
+            processRule["action"] = action;
+            if (!outbound.isEmpty()) processRule["outbound"] = outbound;
+            QJsonArray processes;
+            processes.append("qbittorrent");
+            processes.append("qbittorrent.exe");
+            processes.append("utorrent");
+            processes.append("utorrent.exe");
+            processes.append("uTorrent.exe");
+            processes.append("transmission");
+            processes.append("transmission-gtk");
+            processes.append("transmission-qt");
+            processes.append("deluge");
+            processes.append("deluge.exe");
+            processes.append("deluged");
+            processes.append("rtorrent");
+            processes.append("tixati");
+            processes.append("tixati.exe");
+            processes.append("bitcomet");
+            processes.append("BitComet.exe");
+            processes.append("bittorrent");
+            processes.append("bittorrent.exe");
+            processes.append("vuze");
+            processes.append("Azureus.exe");
+            processes.append("aria2c");
+            processes.append("aria2c.exe");
+            processes.append("webtorrent");
+            processes.append("WebTorrent.exe");
+            processes.append("ktorrent");
+            processes.append("FrostWire.exe");
+            processes.append("BitTorrentWebHelper.exe");
+            processRule["process_name"] = processes;
+            expandedRules.append(processRule);
+            
+            return expandedRules;
+        };
+        
         for (const auto &item: Rules) {
             auto outboundTag = QString();
             if (outboundMap.contains(item->outboundID)) outboundTag = outboundMap[item->outboundID];
@@ -584,11 +658,26 @@ namespace Configs {
                 MW_show_log("Aborted generating routing section, an error has occurred");
                 return {};
             }
-            if (!added_adblock && Configs::dataStore->adblock_enable && rule_json["action"] == "route") {
-                res += createAdblockRule();
-                added_adblock = true;
-            }                
-            res += rule_json;
+            
+            // Check if this is a dtorrent protocol rule
+            if (rule_json.contains("protocol") && rule_json["protocol"].toString() == "dtorrent") {
+                // Expand dtorrent into multiple rules
+                auto expandedRules = expandDTorrentRule(rule_json);
+                for (const auto& expandedRule : expandedRules) {
+                    if (!added_adblock && Configs::dataStore->adblock_enable && expandedRule.toObject()["action"] == "route") {
+                        res += createAdblockRule();
+                        added_adblock = true;
+                    }
+                    res += expandedRule;
+                }
+            } else {
+                // Normal rule processing
+                if (!added_adblock && Configs::dataStore->adblock_enable && rule_json["action"] == "route") {
+                    res += createAdblockRule();
+                    added_adblock = true;
+                }                
+                res += rule_json;
+            }
         }
         if (!added_adblock && Configs::dataStore->adblock_enable)
             res += createAdblockRule();

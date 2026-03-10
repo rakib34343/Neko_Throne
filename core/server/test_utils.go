@@ -291,12 +291,30 @@ func simpleDownloadTest(ctx context.Context, dialer func(ctx context.Context, ne
 		reqStart := time.Now()
 		resp, err := client.Do(req)
 		if err != nil {
-			res.Error = err
+			// Handle common network errors more gracefully
+			if errors.Is(err, io.EOF) {
+				res.Error = fmt.Errorf("connection closed by server (EOF)")
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				res.Error = fmt.Errorf("request timeout")
+			} else {
+				res.Error = err
+			}
 			return
 		}
+		defer resp.Body.Close()
+		
+		// Check HTTP status
+		if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+			res.Error = fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+			return
+		}
+		
 		latency = int32(time.Since(reqStart).Milliseconds())
 		start = time.Now()
-		_, _ = io.Copy(buf, resp.Body)
+		_, copyErr := io.Copy(buf, resp.Body)
+		if copyErr != nil && !errors.Is(copyErr, io.EOF) {
+			res.Error = copyErr
+		}
 	}()
 
 	ticker := time.NewTicker(time.Millisecond * 50)

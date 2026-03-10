@@ -89,6 +89,7 @@ namespace Configs {
         if (!username.isEmpty()) object["username"] = username;
         if (!password.isEmpty()) object["password"] = password;
         if (version == 4) object["version"] = "4";
+        else if (version == 5) object["version"] = "5";
         if (uot) object["uot"] = uot;
         return object;
     }

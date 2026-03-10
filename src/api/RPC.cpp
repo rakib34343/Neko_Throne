@@ -133,16 +133,14 @@ namespace QtGrpc {
 
             QByteArray responseArray;
             QNetworkReply::NetworkError err;
-            QMutex lock;
-            lock.lock();
+            QSemaphore semaphore;
 
             QMetaObject::invokeMethod(nm, [&] {
                 err = call(methodName, serviceName, requestArray, responseArray, timeout_ms);
-                lock.unlock();
+                semaphore.release();
             });
 
-            lock.lock();
-            lock.unlock();
+            semaphore.acquire();
 
             if (err != QNetworkReply::NetworkError::NoError) {
                 return err;

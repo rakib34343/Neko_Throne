@@ -1,0 +1,52 @@
+{
+  "name": "Neko Throne Development",
+  "image": "mcr.microsoft.com/devcontainers/cpp:1-ubuntu-24.04",
+  
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "username": "vscode",
+      "userUid": "automatic",
+      "userGid": "automatic"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "ppa": true,
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.25"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "twxs.cmake",
+        "golang.go",
+        "GitHub.copilot"
+      ],
+      "settings": {
+        "cmake.configureOnOpen": false
+      }
+    }
+  },
+
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  
+  "remoteUser": "vscode",
+  
+  "mounts": [
+    "source=${localWorkspaceFolder}/.ccache,target=/home/vscode/.ccache,type=bind,consistency=cached"
+  ],
+
+  "containerEnv": {
+    "QT_VERSION": "6.10.2",
+    "CCACHE_DIR": "/home/vscode/.ccache"
+  }
+}

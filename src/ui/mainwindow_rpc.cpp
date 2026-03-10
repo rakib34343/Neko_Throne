@@ -10,6 +10,7 @@
 #include <QPushButton>
 #include <QDesktopServices>
 #include <QMessageBox>
+#include <QSemaphore>
 
 #include "include/configs/generate.h"
 #include "include/sys/Process.hpp"
@@ -49,15 +50,14 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
     req.xray_config = xrayConfig.toStdString();
     req.need_xray = !xrayConfig.isEmpty();
 
-    auto done = new QMutex;
-    done->lock();
-    runOnNewThread([=,this]
+    QSemaphore done(0);
+    runOnNewThread([&,this]
     {
         bool ok;
         while (true)
         {
             QThread::msleep(200);
-            if (done->try_lock()) break;
+            if (done.available() > 0) break;
             auto resp = defaultClient->QueryURLTest(&ok);
             if (!ok || resp.results.empty())
             {
@@ -98,12 +98,12 @@ void MainWindow::runURLTest(const QString& config, const QString& xrayConfig, bo
                 });
             }
         }
-        done->unlock();
-        delete done;
+        done.release(1);
     });
     bool rpcOK;
     auto result = defaultClient->Test(&rpcOK, req);
-    struct UnlockGuard { QMutex* m; ~UnlockGuard() { if (m) m->unlock(); } } unlockGuard{done};
+    
+    done.acquire();
     //
     if (!rpcOK || result.results.empty()) return;
 
@@ -369,14 +369,13 @@ void MainWindow::runSpeedTest(const QString& config, const QString& xrayConfig, 
     req.need_xray = !xrayConfig.isEmpty();
 
     // loop query result
-    auto doneMu = new QMutex;
-    doneMu->lock();
-    runOnNewThread([=,this]
+    QSemaphore doneMu(0);
+    runOnNewThread([&,this]
     {
         QDateTime lastProxyListUpdate = QDateTime::currentDateTime();
         while (true) {
             QThread::msleep(100);
-            if (doneMu->tryLock())
+            if (doneMu.available() > 0)
             {
                 break;
             }
@@ -393,12 +392,12 @@ void MainWindow::runSpeedTest(const QString& config, const QString& xrayConfig, 
             showSpeedtestData = false;
             UpdateDataView(true);
         });
-        doneMu->unlock();
-        delete doneMu;
+        doneMu.release(1);
     });
     bool rpcOK;
     auto result = defaultClient->SpeedTest(&rpcOK, req);
-    struct UnlockGuard { QMutex* m; ~UnlockGuard() { if (m) m->unlock(); } } unlockGuard{doneMu};
+    
+    doneMu.acquire();
     //
     if (!rpcOK || result.results.empty()) return;
 

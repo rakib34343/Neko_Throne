@@ -14,7 +14,7 @@ on:
         description: "r for normal release, p for prerelease, leave empty to not publish anything"
         required: false
   push:
-    branches: ["Dev"]
+    branches: ["**"]
     paths-ignore: ["**.md", LICENSE, "docs/**"]
 
 env:
@@ -213,7 +213,7 @@ jobs:
   # ─── Release ──────────────────────────────────────────────────────────────
   release:
     name: Release
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/Dev')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Dev'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [build]

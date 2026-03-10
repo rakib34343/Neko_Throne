@@ -9,8 +9,11 @@
 
 namespace Stats {
 
-    TrafficLooper *trafficLooper = new TrafficLooper;
-    QElapsedTimer elapsedTimer;
+    // Thread-safe singleton - no memory leak
+    TrafficLooper* GetTrafficLooper() {
+        static TrafficLooper instance;
+        return &instance;
+    }
 
     void TrafficLooper::UpdateAll() {
         if (Configs::dataStore->disable_traffic_stats) {

@@ -9,11 +9,23 @@
 
 namespace Configs_sys {
     CoreProcess::~CoreProcess() {
+        if (state() == QProcess::Running) {
+            terminate();
+            if (!waitForFinished(3000)) {
+                kill();
+                waitForFinished(1000);
+            }
+        }
     }
 
     void CoreProcess::Kill() {
-        kill();
-        waitForFinished();
+        if (state() != QProcess::Running) return;
+        terminate();
+        if (!waitForFinished(3000)) {
+            qWarning() << "Core process did not terminate gracefully, killing forcefully";
+            kill();
+            waitForFinished(1000);
+        }
     }
 
     CoreProcess::CoreProcess(const QString &core_path, const QStringList &args) {

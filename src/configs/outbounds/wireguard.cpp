@@ -178,6 +178,9 @@ namespace Configs {
         if (object.contains("system")) system = object["system"].toBool();
         if (object.contains("worker_count")) worker_count = object["worker_count"].toInt();
         if (object.contains("udp_timeout")) udp_timeout = object["udp_timeout"].toString();
+        // Explicit enable_amnezia flag parsing first
+        if (object.contains("enable_amnezia")) enable_amnezia = object["enable_amnezia"].toBool();
+        // Then parse individual Amnezia parameters (they implicitly enable it too)
         if (object.contains("junk_packet_count")) junk_packet_count = object["junk_packet_count"].toInt(), enable_amnezia = true;
         if (object.contains("junk_packet_min_size")) junk_packet_min_size = object["junk_packet_min_size"].toInt(), enable_amnezia = true;
         if (object.contains("junk_packet_max_size")) junk_packet_max_size = object["junk_packet_max_size"].toInt(), enable_amnezia = true;
@@ -240,6 +243,7 @@ namespace Configs {
         if (worker_count > 0) object["worker_count"] = worker_count;
         if (!udp_timeout.isEmpty()) object["udp_timeout"] = udp_timeout;
         if (enable_amnezia) {
+            object["enable_amnezia"] = true;
             if (junk_packet_count > 0) object["junk_packet_count"] = junk_packet_count;
             if (junk_packet_min_size > 0) object["junk_packet_min_size"] = junk_packet_min_size;
             if (junk_packet_max_size > 0) object["junk_packet_max_size"] = junk_packet_max_size;
@@ -272,6 +276,7 @@ namespace Configs {
         if (worker_count > 0) object["worker_count"] = worker_count;
         if (!udp_timeout.isEmpty()) object["udp_timeout"] = udp_timeout;
         if (enable_amnezia) {
+            object["enable_amnezia"] = true;
             if (junk_packet_count > 0) object["junk_packet_count"] = junk_packet_count;
             if (junk_packet_min_size > 0) object["junk_packet_min_size"] = junk_packet_min_size;
             if (junk_packet_max_size > 0) object["junk_packet_max_size"] = junk_packet_max_size;

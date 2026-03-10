@@ -3,6 +3,7 @@
 #include <QString>
 #include <QList>
 #include <QMutex>
+#include <QElapsedTimer>
 
 #include "TrafficData.hpp"
 
@@ -12,6 +13,7 @@ namespace Stats {
         bool loop_enabled = false;
         bool looping = false;
         QMutex loop_mutex;
+        QElapsedTimer elapsedTimer;
 
         QList<std::shared_ptr<TrafficData>> items;
         bool isChain;
@@ -23,5 +25,9 @@ namespace Stats {
         void Loop();
     };
 
-    extern TrafficLooper *trafficLooper;
+    // Thread-safe singleton accessor
+    TrafficLooper* GetTrafficLooper();
+    
+    // Legacy compatibility
+    #define trafficLooper GetTrafficLooper()
 } // namespace Stats

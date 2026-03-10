@@ -366,10 +366,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     this->refresh_groups();
 
     // Setup Tray
-    tray = new QSystemTrayIcon(nullptr);
+    tray = new QSystemTrayIcon(this);
     tray->setIcon(GetTrayIcon(Icon::NONE));
     QApplication::setWindowIcon(Icon::GetTrayIcon(Icon::NONE));
-    auto *trayMenu = new QMenu();
+    auto *trayMenu = new QMenu(this);
     trayMenu->addAction(ui->actionShow_window);
     trayMenu->addSeparator();
     trayMenu->addAction(ui->actionStart_with_system);
@@ -1499,8 +1499,8 @@ void MainWindow::refresh_groups() {
         if (index == 0) {
             ui->tabWidget->setTabText(0, group->name);
         } else {
-            auto widget2 = new QWidget();
-            auto layout2 = new QVBoxLayout();
+            auto widget2 = new QWidget(ui->tabWidget);
+            auto layout2 = new QVBoxLayout(widget2);
             layout2->setContentsMargins(QMargins());
             layout2->setSpacing(0);
             widget2->setLayout(layout2);

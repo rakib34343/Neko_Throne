@@ -745,15 +745,6 @@ namespace Configs {
             {"outbound", "direct"},
         });
 
-        // Route BitTorrent/P2P direct to avoid proxy overhead and IP leaks
-        if (dataStore->routing->sniffing_mode != SniffingMode::DISABLE) {
-            routeRules.prepend(QJsonObject{
-                {"protocol", "bittorrent"},
-                {"action", "route"},
-                {"outbound", "direct"},
-            });
-        }
-
         // rulesets
         auto ruleSetArray = QJsonArray();
         for (const auto &item: routeDeps->neededRuleSets) {

@@ -1,6 +1,6 @@
 module ThroneCore
 
-go 1.25.7
+go 1.25.8
 
 require (
 	github.com/Mahdi-zarei/speedtest-go v1.7.13-0.20260107171856-79c565dfd83a
