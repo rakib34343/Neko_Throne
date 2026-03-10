@@ -196,6 +196,12 @@ jobs:
         shell: bash
         run: ccache -s
 
+      # ── Remove debug files ─────────────────────────────────────────────
+      - name: Remove debug files
+        shell: bash
+        run: |
+          rm -f deployment/**/*.debug deployment/**/*.pdb 2>/dev/null || true
+
       # ── Upload ─────────────────────────────────────────────────────────
       - name: Upload artifact
         uses: actions/upload-artifact@v4.6.2
@@ -207,7 +213,7 @@ jobs:
   # ─── Release ──────────────────────────────────────────────────────────────
   release:
     name: Release
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/08/03/2026_EXPEREMENTAL')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/Dev')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [build]
