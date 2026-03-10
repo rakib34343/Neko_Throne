@@ -3,7 +3,6 @@
 #include "include/dataStore/Database.hpp"
 #include "include/stats/traffic/TrafficLooper.hpp"
 #include "include/api/RPC.h"
-#include "include/ui/utils//MessageBoxTimer.h"
 #include "3rdparty/qv2ray/v2/proxy/QvProxyConfigurator.hpp"
 
 #include <QInputDialog>
@@ -11,6 +10,7 @@
 #include <QDesktopServices>
 #include <QMessageBox>
 #include <QSemaphore>
+#include <QTimer>
 
 #include "include/configs/generate.h"
 #include "include/sys/Process.hpp"
@@ -559,11 +559,11 @@ void MainWindow::profile_start(int _id) {
         return true;
     };
 
-    if (!mu_starting.tryLock()) {
+    if (!mu_starting.tryLock(500)) {
         MessageBoxWarning(software_name, tr("Another profile is starting..."));
         return;
     }
-    if (!mu_stopping.tryLock()) {
+    if (!mu_stopping.tryLock(500)) {
         MessageBoxWarning(software_name, tr("Another profile is stopping..."));
         mu_starting.unlock();
         return;
@@ -583,11 +583,18 @@ void MainWindow::profile_start(int _id) {
         return; // let CoreProcess call profile_start when core is up
     }
 
-    // timeout message
+    // timeout message (non-modal to avoid blocking the UI thread)
     auto restartMsgbox = new QMessageBox(QMessageBox::Question, software_name, tr("If there is no response for a long time, it is recommended to restart the software."),
                                          QMessageBox::Yes | QMessageBox::No, this);
+    restartMsgbox->setModal(false);
     connect(restartMsgbox, &QMessageBox::accepted, this, [=,this] { MW_dialog_message("", "RestartProgram"); });
-    auto restartMsgboxTimer = new MessageBoxTimer(this, restartMsgbox, 10000);
+    connect(restartMsgbox, &QMessageBox::rejected, restartMsgbox, &QObject::deleteLater);
+    auto restartMsgboxShowTimer = new QTimer(this);
+    restartMsgboxShowTimer->setSingleShot(true);
+    connect(restartMsgboxShowTimer, &QTimer::timeout, this, [restartMsgbox] {
+        restartMsgbox->show();
+    });
+    restartMsgboxShowTimer->start(10000);
 
     runOnNewThread([=, this] {
         // stop current running
@@ -596,8 +603,14 @@ void MainWindow::profile_start(int _id) {
             {
                 profile_stop(false, false, true);
             }, true);
-            mu_stopping.lock();
-            mu_stopping.unlock();
+            // Wait for stop to complete with timeout
+            if (!mu_stopping.tryLock(30000)) {
+                MW_show_log("[Warn] " + tr("Profile stop timed out, forcing cleanup..."));
+                running = nullptr;
+                Configs::dataStore->need_keep_vpn_off = false;
+            } else {
+                mu_stopping.unlock();
+            }
         }
         // do start
         MW_show_log(">>>>>>>> " + tr("Starting profile %1").arg(ent->outbound->DisplayTypeAndName()));
@@ -607,8 +620,9 @@ void MainWindow::profile_start(int _id) {
         mu_starting.unlock();
         // cancel timeout
         runOnUiThread([=,this] {
-            restartMsgboxTimer->cancel();
-            restartMsgboxTimer->deleteLater();
+            restartMsgboxShowTimer->stop();
+            restartMsgboxShowTimer->deleteLater();
+            restartMsgbox->close();
             restartMsgbox->deleteLater();
         });
     });
@@ -656,7 +670,7 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
         return true;
     };
 
-    if (!mu_stopping.tryLock()) {
+    if (!mu_stopping.tryLock(500)) {
         return;
     }
 
@@ -665,17 +679,22 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
     runOnNewThread([=, this] {
         Stats::trafficLooper->loop_enabled = false;
         Stats::connection_lister->suspend = true;
-        Stats::trafficLooper->loop_mutex.lock();
-        Stats::trafficLooper->UpdateAll();
-        for (const auto &item: Stats::trafficLooper->items) {
-            if (item->id < 0) continue;
-            Configs::profileManager->GetProfile(item->id)->Save();
-            refresh_proxy_list(item->id);
+        if (Stats::trafficLooper->loop_mutex.tryLock(5000)) {
+            Stats::trafficLooper->UpdateAll();
+            for (const auto &item: Stats::trafficLooper->items) {
+                if (item->id < 0) continue;
+                Configs::profileManager->GetProfile(item->id)->Save();
+                refresh_proxy_list(item->id);
+            }
+            Stats::trafficLooper->loop_mutex.unlock();
+        } else {
+            MW_show_log("[Warn] Traffic stats lock timeout during stop, skipping stats save");
         }
-        Stats::trafficLooper->loop_mutex.unlock();
 
         // do stop
-        MW_show_log(">>>>>>>> " + tr("Stopping profile %1").arg(running->outbound->DisplayTypeAndName()));
+        if (running != nullptr) {
+            MW_show_log(">>>>>>>> " + tr("Stopping profile %1").arg(running->outbound->DisplayTypeAndName()));
+        }
         if (!profile_stop_stage2()) {
             MW_show_log("<<<<<<<< " + tr("Failed to stop, please restart the program."));
         }

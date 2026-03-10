@@ -1,4 +1,5 @@
-<?xml version="1.0" ?>
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
 <TS version="2.1" language="ru_RU">
     <context>
         <name>CoreProcess</name>
@@ -147,7 +148,7 @@
         </message>
         <message>
             <source>XHTTP And Reality</source>
-            <translation>>Использовать XHTTP и Reality</translation>
+            <translation>&gt;Использовать XHTTP и Reality</translation>
         </message>
         <message>
             <source>Default On</source>
@@ -3435,6 +3436,10 @@ https://matsuridayo.github.io/n-configuration/#vpn-tun</translation>
         <message>
             <source>Failed to build batch test config: </source>
             <translation>Failed to build batch test config:</translation>
+        </message>
+        <message>
+            <source>Profile stop timed out, forcing cleanup...</source>
+            <translation>Остановка профиля по тайм-ауту, принудительная очистка...</translation>
         </message>
     </context>
     <context>

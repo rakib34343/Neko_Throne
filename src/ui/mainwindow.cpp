@@ -43,6 +43,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QMessageBox>
+#include <QSemaphore>
 #include <QDir>
 #include <QFileInfo>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
@@ -971,7 +972,10 @@ void MainWindow::on_commitDataRequest() {
 void MainWindow::prepare_exit()
 {
     qDebug() << "prepare for exit...";
-    mu_exit.lock();
+    if (!mu_exit.tryLock(1000)) {
+        qDebug() << "prepare_exit: another exit in progress, skipping";
+        return;
+    }
     if (Configs::dataStore->prepare_exit)
     {
         qDebug() << "prepare exit had already succeeded, ignoring...";
@@ -989,12 +993,28 @@ void MainWindow::prepare_exit()
     on_commitDataRequest();
     //
     Configs::dataStore->save_control_no_save = true; // don't change datastore after this line
-    profile_stop(false, true);
 
-    runOnThread([=, this]()
+    // Stop profile with timeout — don't block forever
+    profile_stop(false, false);
+    // Wait up to 5 seconds for profile to stop gracefully
+    if (mu_stopping.tryLock(5000)) {
+        mu_stopping.unlock();
+    } else {
+        qDebug() << "prepare_exit: profile stop timed out, forcing cleanup";
+        running = nullptr;
+    }
+
+    // Kill core process with timeout
+    QSemaphore killDone;
+    runOnThread([=, this, &killDone]()
     {
         core_process->Kill();
-    }, DS_cores, true);
+        killDone.release();
+    }, DS_cores);
+    if (!killDone.tryAcquire(1, 5000)) {
+        qDebug() << "prepare_exit: core kill timed out, forcing termination";
+        core_process->kill();
+    }
 
     mu_exit.unlock();
     qDebug() << "prepare exit done!";
@@ -1574,6 +1594,14 @@ void MainWindow::refresh_proxy_list_impl(const int &id, GroupSortAction groupSor
 
     // refresh data
     refresh_proxy_list_impl_refresh_data(id);
+
+    // trigger column resize after data refresh (only for full list refresh)
+    if (id < 0) {
+        auto cg = Configs::profileManager->CurrentGroup();
+        if (cg != nullptr) {
+            show_group(cg->id);
+        }
+    }
 }
 
 void MainWindow::refresh_proxy_list_impl_refresh_data(const int &id, bool stopping) {
@@ -1619,7 +1647,7 @@ void MainWindow::refresh_table_item(const int row, const std::shared_ptr<Configs
 
     // Check state
     auto check = f0->clone();
-    check->setText(isRunning ? "✓" : Int2String(row + 1) + "  ");
+    check->setText(isRunning ? " ✓ " : " " + Int2String(row + 1) + "  ");
     ui->proxyListTable->setVerticalHeaderItem(row, check);
 
     // C0: Type

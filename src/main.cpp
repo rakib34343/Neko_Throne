@@ -7,6 +7,7 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QTranslator>
+#include <QLibraryInfo>
 #include <QMessageBox>
 #include <QStandardPaths>
 #include <QLocalSocket>
@@ -44,26 +45,30 @@ QTranslator* trans_qt = nullptr;
 // Legacy loadTranslate kept for backward compatibility (called if TranslationManager
 // cannot find external .qm files, e.g. first run before lang/ is populated).
 void loadTranslate(const QString& locale) {
-    QT_TRANSLATE_NOOP("QPlatformTheme", "Cancel");
-    QT_TRANSLATE_NOOP("QPlatformTheme", "Apply");
-    QT_TRANSLATE_NOOP("QPlatformTheme", "Yes");
-    QT_TRANSLATE_NOOP("QPlatformTheme", "No");
-    QT_TRANSLATE_NOOP("QPlatformTheme", "OK");
     if (trans != nullptr) {
+        QCoreApplication::removeTranslator(trans);
         trans->deleteLater();
     }
     if (trans_qt != nullptr) {
+        QCoreApplication::removeTranslator(trans_qt);
         trans_qt->deleteLater();
     }
     trans = new QTranslator;
     trans_qt = new QTranslator;
     QLocale::setDefault(QLocale(locale));
-    // Try external lang/ first (TranslationManager path), then fall back to qrc
+    // Load app translations: try external lang/ first, then fall back to qrc
     const QString langDir = QCoreApplication::applicationDirPath() + QStringLiteral("/lang");
     if (trans->load(langDir + "/" + locale + ".qm")) {
         QCoreApplication::installTranslator(trans);
     } else if (trans->load(":/translations/" + locale + ".qm")) {
         QCoreApplication::installTranslator(trans);
+    }
+    // Load Qt's built-in translations for standard buttons (Yes/No/OK/Cancel)
+    const QString qtTransDir = QLibraryInfo::path(QLibraryInfo::TranslationsPath);
+    if (trans_qt->load("qtbase_" + locale, qtTransDir)) {
+        QCoreApplication::installTranslator(trans_qt);
+    } else if (trans_qt->load("qt_" + locale, qtTransDir)) {
+        QCoreApplication::installTranslator(trans_qt);
     }
 }
 
