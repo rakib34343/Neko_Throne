@@ -15,9 +15,8 @@ namespace Stats
 
     void ConnectionLister::ForceUpdate()
     {
-        mu.lock();
+        QMutexLocker locker(&mu);
         update();
-        mu.unlock();
     }
 
 
@@ -139,6 +138,7 @@ namespace Stats
 
     void ConnectionLister::setSort(const ConnectionSort newSort)
     {
+        QMutexLocker locker(&mu);
         if (newSort == ByTraffic)
         {
             if (sort == ByDownload && asc)

@@ -120,14 +120,14 @@ namespace Configs {
                 ctx->error = "Outbounds used in routing profile cannot be of types extracore, custom or chain";
                 return;
             }
-            if (auto entAddrs = getEntDomains({neededEnt->id}, ctx->error); !entAddrs.empty())
             {
+                auto entAddrs = getEntDomains({neededEnt->id}, ctx->error);
                 if (!ctx->error.isEmpty()) return;
-                for (const auto &addr: entAddrs)
-                {
-                    preReqs->dnsDeps->directDomains << addr;
+                if (!entAddrs.empty()) {
+                    for (const auto &addr: entAddrs)
+                        preReqs->dnsDeps->directDomains << addr;
+                    preReqs->dnsDeps->needDirectDnsRules = true;
                 }
-                preReqs->dnsDeps->needDirectDnsRules = true;
             }
             preReqs->routingDeps->outboundMap[item] = "route-" + Int2String(suffix++);
             preReqs->routingDeps->neededOutbounds << item;
@@ -157,11 +157,13 @@ namespace Configs {
             }
             preReqs->dnsDeps->needDirectDnsRules = true;
         }
-        if (auto entAddrs = getEntDomains({ctx->ent->id}, ctx->error); !entAddrs.isEmpty())
         {
+            auto entAddrs = getEntDomains({ctx->ent->id}, ctx->error);
             if (!ctx->error.isEmpty()) return;
-            for (const auto &addr: entAddrs) preReqs->dnsDeps->directDomains << addr;
-            preReqs->dnsDeps->needDirectDnsRules = true;
+            if (!entAddrs.isEmpty()) {
+                for (const auto &addr: entAddrs) preReqs->dnsDeps->directDomains << addr;
+                preReqs->dnsDeps->needDirectDnsRules = true;
+            }
         }
         if (auto group = profileManager->GetGroup(ctx->ent->gid); group != nullptr)
         {

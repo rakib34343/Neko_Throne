@@ -174,6 +174,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     for (int i=0;i<20;i++)
     {
         QThread::msleep(100);
+        QCoreApplication::processEvents();
         if (Configs::dataStore->core_running) break;
     }
     if (!Configs::dataStore->core_running) qDebug() << "[Warn] Core is taking too much time to start";

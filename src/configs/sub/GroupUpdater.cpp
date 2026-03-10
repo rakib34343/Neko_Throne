@@ -8,6 +8,7 @@
 #include <QInputDialog>
 #include <QUrlQuery>
 #include <QJsonDocument>
+#include <atomic>
 
 #include "include/configs/common/utils.h"
 
@@ -534,7 +535,7 @@ namespace Subscription {
     }
 } // namespace Subscription
 
-bool UI_update_all_groups_Updating = false;
+std::atomic<bool> UI_update_all_groups_Updating = false;
 
 #define should_skip_group(g) (g == nullptr || g->url.isEmpty() || g->archive || (onlyAllowed && g->skip_auto_update))
 

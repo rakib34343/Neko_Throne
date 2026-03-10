@@ -1,6 +1,7 @@
 #pragma once
 #include <QMutex>
 #include <QString>
+#include <atomic>
 
 namespace Stats
 {
@@ -37,7 +38,7 @@ namespace Stats
     public:
         ConnectionLister();
 
-        bool suspend = true;
+        std::atomic<bool> suspend = true;
 
         void Loop();
 
@@ -52,7 +53,7 @@ namespace Stats
 
         QMutex mu;
 
-        bool stop = false;
+        std::atomic<bool> stop = false;
 
         std::shared_ptr<QSet<QString>> state;
 
