@@ -31,6 +31,9 @@ if [ -d "$BUILD/lang" ]; then
 fi
 
 #### extract Go artifacts ####
+echo ">> Current directory: $(pwd)"
+echo ">> ARCH=$ARCH, looking for: download-artifact/*$ARCH"
+ls -la download-artifact/ || echo "download-artifact not found!"
 cd download-artifact
 cd *$ARCH
 tar xvzf artifacts.tgz -C ../../

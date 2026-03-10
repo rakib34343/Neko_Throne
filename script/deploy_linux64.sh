@@ -26,6 +26,9 @@ fi
 #### copy Throne.png ####
 cp ./res/public/Throne.png $DEST
 
+echo ">> Current directory: $(pwd)"
+echo ">> Looking for: download-artifact/*linux-$ARCH"
+ls -la download-artifact/ || echo "download-artifact not found!"
 cd download-artifact
 cd *linux-$ARCH
 tar xvzf artifacts.tgz -C ../../
