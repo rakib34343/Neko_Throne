@@ -429,21 +429,7 @@ namespace Configs {
     short isAdminCache = -1;
 
     bool isSetuidSet(const std::string& path) {
-#ifdef Q_OS_MACOS
-        struct stat fileInfo;
-
-        if (stat(path.c_str(), &fileInfo) != 0) {
-            return false;
-        }
-
-        if (fileInfo.st_mode & S_ISUID) {
-            return true;
-        } else {
-            return false;
-        }
-#else
         return false;
-#endif
     }
 
     // IsAdmin 主要判断：有无权限启动 Tun

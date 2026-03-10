@@ -223,7 +223,7 @@ jobs:
     needs: [build]
     permissions: { contents: write, actions: read }
     env:
-      INPUT_VERSION: ${{ github.event.inputs.tag || format('nightly-{0}', github.run_number) }}
+      INPUT_VERSION: ${{ github.event.inputs.tag || format('0.5.0-nightly.{0}', github.run_number) }}
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/download-artifact@v4.3.0
@@ -240,4 +240,4 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: ./scripts/ci/release_pack.sh
       - uses: actions/upload-artifact@v4.6.2
-        with: { name: debug-symbols, path: deployment/debug-symbols.zip }
+        with: { name: debug-symbols, path: debug-symbols.zip }

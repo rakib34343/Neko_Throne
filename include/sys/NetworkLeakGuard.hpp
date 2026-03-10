@@ -18,6 +18,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QStringList>
+#include <atomic>
 
 // ─── Leak detection result ───────────────────────────────────────────────────
 struct LeakAuditResult {
@@ -68,4 +69,5 @@ private:
     LeakAuditResult auditIPv6();
 
     QTimer *m_timer = nullptr;
+    std::atomic<bool> m_auditRunning{false};
 };

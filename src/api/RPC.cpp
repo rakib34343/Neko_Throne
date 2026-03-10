@@ -127,7 +127,7 @@ namespace QtGrpc {
 
         QNetworkReply::NetworkError Call(const QString &methodName,
                                          const std::string req, std::vector<uint8_t> &rsp,
-                                         int timeout_ms = 0) {
+                                         int timeout_ms = 15000) {
             if (!Configs::dataStore->core_running) return QNetworkReply::NetworkError(-1919);
 
             auto requestArray = QByteArray::fromStdString(req);
@@ -141,7 +141,9 @@ namespace QtGrpc {
                 semaphore.release();
             });
 
-            semaphore.acquire();
+            if (!semaphore.tryAcquire(1, timeout_ms > 0 ? timeout_ms + 5000 : 20000)) {
+                return QNetworkReply::NetworkError::TimeoutError;
+            }
 
             if (err != QNetworkReply::NetworkError::NoError) {
                 return err;

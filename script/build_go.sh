@@ -7,8 +7,6 @@ source script/env_deploy.sh
 [ "$GOOS" == "windows" ] && [ "$GOARCH" == "arm64" ] && DEST=$DEPLOYMENT/windows-arm64 || true
 [ "$GOOS" == "linux" ] && [ "$GOARCH" == "amd64" ] && DEST=$DEPLOYMENT/linux-amd64 || true
 [ "$GOOS" == "linux" ] && [ "$GOARCH" == "arm64" ] && DEST=$DEPLOYMENT/linux-arm64 || true
-[ "$GOOS" == "darwin" ] && [ "$GOARCH" == "amd64" ] && DEST=$DEPLOYMENT/macos-amd64 || true
-[ "$GOOS" == "darwin" ] && [ "$GOARCH" == "arm64" ] && DEST=$DEPLOYMENT/macos-arm64 || true
 
 if [[ "$GOOS" =~ legacy$ ]]; then
   GOCMD="$PWD/go/bin/go"
@@ -20,8 +18,8 @@ if [[ "$GOOS" =~ legacy$ ]]; then
       DEST=$DEPLOYMENT/windows32
     fi
   else
-    GOOS="darwin"
-    DEST=$DEPLOYMENT/macos-legacy-amd64
+    echo "Unsupported legacy OS: $GOOS"
+    exit 1
   fi
 else
   GOCMD="go"

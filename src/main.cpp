@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
     QApplication::setQuitOnLastWindowClosed(false);
     QApplication a(argc, argv);
 
-#if !defined(Q_OS_MACOS) && (QT_VERSION >= QT_VERSION_CHECK(6,9,0))
+#if (QT_VERSION >= QT_VERSION_CHECK(6,9,0))
     // Load the emoji fonts
 #ifdef Q_OS_WIN
     int fontId = QFontDatabase::addApplicationFont(WinVersion::IsBuildNumGreaterOrEqual(BuildNumber::Windows_11_22H2) ? ":/font/notoEmoji" : ":/font/Twemoji");
@@ -285,14 +285,6 @@ int main(int argc, char* argv[]) {
 #ifdef Q_OS_WIN
     auto eventFilter = new PowerOffTaskkillFilter(signal_handler);
     a.installNativeEventFilter(eventFilter);
-#endif
-
-#ifdef Q_OS_MACOS
-    QObject::connect(qApp, &QGuiApplication::commitDataRequest, [&](QSessionManager &manager)
-    {
-        Q_UNUSED(manager);
-        signal_handler(0);
-    });
 #endif
 
     UI_InitMainWindow();

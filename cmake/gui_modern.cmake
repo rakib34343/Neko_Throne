@@ -30,7 +30,7 @@ set(GUI_MODERN_SOURCES
 # Platform-specific title bar backends
 if (WIN32)
     list(APPEND GUI_MODERN_SOURCES src/sys/platform/TitleBar_win.cpp)
-elseif (NOT APPLE)
+else ()
     list(APPEND GUI_MODERN_SOURCES src/sys/platform/TitleBar_linux.cpp)
 endif()
 

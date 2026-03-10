@@ -305,9 +305,6 @@ namespace Configs {
         CoreObjOutboundBuildResult result;
 
         auto tun_name = "throne-wg";
-#ifdef Q_OS_MACOS
-        tun_name = "";
-#endif
 
         QJsonObject peer{
             {"address", serverAddress},

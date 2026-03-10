@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(Throne VERSION 0.1)
+project(Throne VERSION 0.5.0)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Strict amd64 enforcement — MUST be checked before any compilation targets
@@ -46,9 +46,7 @@ if (NKR_CROSS)
 endif ()
 
 #### Platform Variables ####
-if (APPLE)
-    include("cmake/macos/macos.cmake")
-elseif (WIN32)
+if (WIN32)
     include("cmake/windows/windows.cmake")
 else ()
     include("cmake/linux/linux.cmake")
@@ -76,7 +74,7 @@ include("cmake/gui_modern.cmake")
 
 find_package(Threads)
 
-if (NKR_PACKAGE OR NKR_PACKAGE_MACOS)
+if (NKR_PACKAGE)
     nkr_add_compile_definitions(NKR_CPP_USE_APPDATA)
 endif ()
 
@@ -252,11 +250,7 @@ set(PROJECT_SOURCES
         include/ui/profile/edit_ssh.h
         include/ui/profile/edit_ssh.ui
         include/configs/proxy/SSHBean.h
-        include/sys/macos/MacOS.h
-
         src/sys/linux/LinuxCap.cpp
-
-        src/sys/macos/MacOS.cpp
 
         src/sys/AutoRun.cpp
         src/sys/Process.cpp
@@ -340,7 +334,7 @@ set(PROJECT_SOURCES
         include/ui/profile/edit_xrayvless.ui
 )
 
-if (NOT APPLE AND Qt6_VERSION VERSION_GREATER_EQUAL 6.9.0)
+if (Qt6_VERSION VERSION_GREATER_EQUAL 6.9.0)
     list(APPEND PROJECT_SOURCES res/EmojiFont.qrc)
     if (WIN32)
         list(APPEND PROJECT_SOURCES res/EmojiFontWin.qrc)
@@ -360,20 +354,8 @@ set_property(TARGET Throne PROPERTY AUTOMOC ON)
 set_property(TARGET Throne PROPERTY AUTORCC ON)
 
 
-# Target Source macOS
-
-set(MACOSX_ICON ${CMAKE_SOURCE_DIR}/res/Throne.icns)
-if (APPLE)
-    target_sources(Throne PRIVATE ${MACOSX_ICON})
-endif ()
-
 set_target_properties(Throne PROPERTIES
         OUTPUT_NAME "Neko_Throne"
-        MACOSX_BUNDLE_ICON_FILE "Throne.icns"
-        RESOURCE ${MACOSX_ICON}
-        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/res/MacOSXBundleInfo.plist
-        MACOSX_BUNDLE_GUI_IDENTIFIER moe.Throne.macosx
-        MACOSX_BUNDLE TRUE
         WIN32_EXECUTABLE TRUE
 )
 

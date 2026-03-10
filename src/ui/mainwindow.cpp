@@ -58,8 +58,6 @@
 #include "include/global/DeviceDetailsHelper.hpp"
 #include "include/api/CoreVersionParser.hpp"
 
-#include "include/sys/macos/MacOS.h"
-
 void UI_InitMainWindow() {
     mainwindow = new MainWindow;
 }
@@ -1088,26 +1086,6 @@ bool MainWindow::get_elevated_permissions(int reason) {
         on_menu_exit_triggered();
     }
 #endif
-
-#ifdef Q_OS_MACOS
-    if (Configs::isSetuidSet(Configs::FindCoreRealPath().toStdString()))
-    {
-        StopVPNProcess();
-        return true;
-    }
-    auto n = QMessageBox::warning(GetMessageBoxParent(), software_name, tr("Please give the core root privileges"), QMessageBox::Yes | QMessageBox::No);
-    if (n == QMessageBox::Yes)
-    {
-        auto Command = QString("sudo chown root:wheel " + Configs::FindCoreRealPath() + " && " + "sudo chmod u+s "+Configs::FindCoreRealPath());
-        auto ret = Mac_Run_Command(Command);
-        if (ret == 0) {
-            MessageBoxInfo(tr("Requesting permission"), tr("Please Enter your password in the opened terminal, then try again"));
-            return false;
-        } else {
-            MW_show_log(QString("Failed to run %1 with %2").arg(Command).arg(ret));
-            return false;
-        }
-    }
 #endif
     return false;
 }
@@ -2618,13 +2596,6 @@ void MainWindow::CheckUpdate() {
     search = "linux-amd64";
 #  else
     search = "linux-arm64";
-#  endif
-#endif
-#ifdef Q_OS_MACOS
-#  ifdef Q_PROCESSOR_X86_64
-	search = "macos-amd64";
-#  else
-	search = "macos-arm64";
 #  endif
 #endif
     if (search.isEmpty()) {

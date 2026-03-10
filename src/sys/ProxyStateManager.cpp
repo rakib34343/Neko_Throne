@@ -6,7 +6,6 @@
 #include "include/global/Configs.hpp"
 #include "include/api/RPC.h"
 
-#include <QMutexLocker>
 #include <QProcess>
 #include <QtConcurrent>
 
@@ -90,6 +89,7 @@ void ProxyStateManager::activateKillSwitch() {
 
 void ProxyStateManager::deactivateKillSwitch() {
     m_killSwitch.store(false, std::memory_order_release);
+    setMode(ProxyMode::Direct);
     emit killSwitchStateChanged(false);
 }
 
@@ -114,17 +114,6 @@ void ProxyStateManager::transitionToDirect() {
     QProcess::execute(QStringLiteral("gsettings"),
         {QStringLiteral("set"), QStringLiteral("org.gnome.system.proxy"),
          QStringLiteral("mode"), QStringLiteral("'none'")});
-#elif defined(Q_OS_MACOS)
-    // On macOS, clear network proxy via networksetup
-    QProcess::execute(QStringLiteral("networksetup"),
-        {QStringLiteral("-setwebproxystate"), QStringLiteral("Wi-Fi"),
-         QStringLiteral("off")});
-    QProcess::execute(QStringLiteral("networksetup"),
-        {QStringLiteral("-setsecurewebproxystate"), QStringLiteral("Wi-Fi"),
-         QStringLiteral("off")});
-    QProcess::execute(QStringLiteral("networksetup"),
-        {QStringLiteral("-setsocksfirewallproxystate"), QStringLiteral("Wi-Fi"),
-         QStringLiteral("off")});
 #endif
 
     // 2. If TUN mode was active, signal the core to deactivate TUN
@@ -177,13 +166,6 @@ void ProxyStateManager::transitionToProxy() {
     QProcess::execute(QStringLiteral("gsettings"),
         {QStringLiteral("set"), QStringLiteral("org.gnome.system.proxy.socks"),
          QStringLiteral("port"), port});
-#elif defined(Q_OS_MACOS)
-    QProcess::execute(QStringLiteral("networksetup"),
-        {QStringLiteral("-setwebproxy"), QStringLiteral("Wi-Fi"), addr, port});
-    QProcess::execute(QStringLiteral("networksetup"),
-        {QStringLiteral("-setsecurewebproxy"), QStringLiteral("Wi-Fi"), addr, port});
-    QProcess::execute(QStringLiteral("networksetup"),
-        {QStringLiteral("-setsocksfirewallproxy"), QStringLiteral("Wi-Fi"), addr, port});
 #endif
 }
 
@@ -217,14 +199,6 @@ void ProxyStateManager::transitionToBlock() {
          QStringLiteral("priority"), QStringLiteral("100"),
          QStringLiteral("not"), QStringLiteral("from"), QStringLiteral("127.0.0.0/8"),
          QStringLiteral("lookup"), QStringLiteral("throne_block")});
-#elif defined(Q_OS_MACOS)
-    // macOS: Add a blackhole route
-    QProcess::execute(QStringLiteral("route"),
-        {QStringLiteral("add"), QStringLiteral("-net"),
-         QStringLiteral("0.0.0.0/1"), QStringLiteral("-blackhole")});
-    QProcess::execute(QStringLiteral("route"),
-        {QStringLiteral("add"), QStringLiteral("-net"),
-         QStringLiteral("128.0.0.0/1"), QStringLiteral("-blackhole")});
 #endif
 }
 
@@ -238,8 +212,6 @@ bool ProxyStateManager::validateRoutingTable() {
     proc.start(QStringLiteral("route"), {QStringLiteral("print")});
 #elif defined(Q_OS_LINUX)
     proc.start(QStringLiteral("ip"), {QStringLiteral("route"), QStringLiteral("show")});
-#elif defined(Q_OS_MACOS)
-    proc.start(QStringLiteral("netstat"), {QStringLiteral("-rn")});
 #endif
     if (!proc.waitForFinished(3000))
         return false;

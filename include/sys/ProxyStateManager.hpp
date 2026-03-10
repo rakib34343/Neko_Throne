@@ -9,7 +9,6 @@
 #pragma once
 
 #include <QObject>
-#include <QMutex>
 #include <atomic>
 
 // ─── Proxy operating modes ───────────────────────────────────────────────────
@@ -87,5 +86,4 @@ private:
     std::atomic<ProxyMode> m_mode{ProxyMode::Direct};
     std::atomic<bool> m_transitioning{false};
     std::atomic<bool> m_killSwitch{false};
-    QMutex m_transitionMutex;
 };

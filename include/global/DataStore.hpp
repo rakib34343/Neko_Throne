@@ -148,10 +148,7 @@ namespace Configs {
         // VPN
         bool fake_dns = false;
         bool enable_tun_routing = false;
-#ifdef Q_OS_MACOS
-        QString vpn_implementation = "gvisor";
-        bool vpn_strict_route = true;
-#elif defined(Q_OS_WIN)
+#ifdef Q_OS_WIN
         QString vpn_implementation = WinVersion::IsBuildNumGreaterOrEqual(BuildNumber::Windows_10_1507) ? "system" : "gvisor";
         bool vpn_strict_route = WinVersion::IsBuildNumGreaterOrEqual(BuildNumber::Windows_10_1507);
 #else

@@ -15,11 +15,6 @@
 
 set(_THRONE_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
 
-# macOS cross-compilation: CMAKE_OSX_ARCHITECTURES takes precedence
-if (APPLE AND DEFINED CMAKE_OSX_ARCHITECTURES)
-    set(_THRONE_ARCH "${CMAKE_OSX_ARCHITECTURES}")
-endif()
-
 # Normalize: accept "x86_64", "AMD64", "amd64" — reject everything else
 string(TOLOWER "${_THRONE_ARCH}" _THRONE_ARCH_LOWER)
 if (NOT (_THRONE_ARCH_LOWER STREQUAL "x86_64" OR _THRONE_ARCH_LOWER STREQUAL "amd64"))

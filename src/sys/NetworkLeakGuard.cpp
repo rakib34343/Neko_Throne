@@ -21,6 +21,9 @@ NetworkLeakGuard::NetworkLeakGuard(QObject *parent) : QObject(parent) {}
 // Full Audit — runs routing, DNS, and IPv6 checks off-thread
 // ═══════════════════════════════════════════════════════════════════════════════
 void NetworkLeakGuard::runFullAudit() {
+    if (m_auditRunning.exchange(true, std::memory_order_acq_rel))
+        return; // previous audit still running, skip
+
     (void) QtConcurrent::run([this] {
         LeakAuditResult combined;
 
@@ -38,6 +41,7 @@ void NetworkLeakGuard::runFullAudit() {
                              << ipv6Result.diagnostics;
 
         QMetaObject::invokeMethod(this, [this, combined] {
+            m_auditRunning.store(false, std::memory_order_release);
             emit auditCompleted(combined);
 
             if (!combined.routingIntact)
@@ -56,7 +60,7 @@ void NetworkLeakGuard::startMonitoring(int intervalMs) {
         m_timer = new QTimer(this);
         connect(m_timer, &QTimer::timeout, this, &NetworkLeakGuard::runFullAudit);
     }
-    m_timer->start(intervalMs);
+    m_timer->start(intervalMs > 15000 ? intervalMs : 15000);
 }
 
 void NetworkLeakGuard::stopMonitoring() {
@@ -82,8 +86,6 @@ LeakAuditResult NetworkLeakGuard::auditRoutingTable() {
     proc.start(QStringLiteral("route"), {QStringLiteral("print"), QStringLiteral("0.0.0.0")});
 #elif defined(Q_OS_LINUX)
     proc.start(QStringLiteral("ip"), {QStringLiteral("route"), QStringLiteral("show"), QStringLiteral("default")});
-#elif defined(Q_OS_MACOS)
-    proc.start(QStringLiteral("route"), {QStringLiteral("-n"), QStringLiteral("get"), QStringLiteral("default")});
 #endif
 
     if (!proc.waitForFinished(3000)) {
@@ -242,8 +244,6 @@ bool NetworkLeakGuard::isTunInterfaceUp() const {
     QProcess proc;
 #ifdef Q_OS_LINUX
     proc.start(QStringLiteral("ip"), {QStringLiteral("link"), QStringLiteral("show"), QStringLiteral("type"), QStringLiteral("tun")});
-#elif defined(Q_OS_MACOS)
-    proc.start(QStringLiteral("ifconfig"), {QStringLiteral("-a")});
 #elif defined(Q_OS_WIN)
     proc.start(QStringLiteral("netsh"),
         {QStringLiteral("interface"), QStringLiteral("show"), QStringLiteral("interface")});

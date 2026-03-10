@@ -11,7 +11,6 @@ namespace Configs
         Unknown = 0,
         Linux = 1,
         Windows = 2,
-        Darwin = 3,
     };
 
     class ExtraCoreData

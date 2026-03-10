@@ -12,9 +12,6 @@ namespace Configs {
 
     QString genTunName() {
         auto tun_name = "throne-tun";
-#ifdef Q_OS_MACOS
-        tun_name = "";
-#endif
         return tun_name;
     }
 
@@ -40,9 +37,6 @@ namespace Configs {
 
     inline OSType getOS()
     {
-#ifdef Q_OS_MACOS
-        return Darwin;
-#endif
 #ifdef Q_OS_LINUX
         return Linux;
 #endif

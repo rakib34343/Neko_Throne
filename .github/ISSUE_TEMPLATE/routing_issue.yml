@@ -8,7 +8,6 @@ body:
       options:
         - Windows
         - Linux
-        - macOS
     validations:
       required: true
   - type: input

@@ -1,7 +1,13 @@
 #!/bin/bash
 set -e
 
-version="$1"
+raw_version="$1"
+# dpkg-deb requires version to start with a digit
+if [[ ! "$raw_version" =~ ^[0-9] ]]; then
+    version="0.0.0~${raw_version}"
+else
+    version="$raw_version"
+fi
 
 mkdir -p Throne/DEBIAN
 mkdir -p Throne/opt

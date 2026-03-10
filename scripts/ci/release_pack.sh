@@ -98,13 +98,16 @@ else
     echo "WARN: windows64 directory not found, skipping."
 fi
 
-# ─── Debug symbols bundle ────────────────────────────────────────────────────
+# ─── Debug symbols bundle (separate artifact, not in release) ────────────────
 echo ""
 echo ">> Packing debug symbols..."
 zip -9 -r debug-symbols.zip debug
 
 # ─── Cleanup staging ─────────────────────────────────────────────────────────
-rm -rf linux-amd64 windows64 *.pdb debug*/*.pdb
+# Remove debug dir and leftover symbols
+rm -rf linux-amd64 windows64 debug *.pdb
+# Move debug-symbols.zip out of deployment so ghr won't publish it
+mv debug-symbols.zip "${REPO_ROOT}/debug-symbols.zip" 2>/dev/null || true
 
 cd "${REPO_ROOT}"
 

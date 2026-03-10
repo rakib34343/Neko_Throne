@@ -21,10 +21,9 @@ namespace Configs_sys {
     void CoreProcess::Kill() {
         if (state() != QProcess::Running) return;
         terminate();
-        if (!waitForFinished(3000)) {
-            qWarning() << "Core process did not terminate gracefully, killing forcefully";
+        if (!waitForFinished(1500)) {
             kill();
-            waitForFinished(1000);
+            waitForFinished(500);
         }
     }
 
@@ -32,7 +31,7 @@ namespace Configs_sys {
         program = core_path;
         arguments = args;
 
-        connect(this, &QProcess::readyReadStandardOutput, this, [&]() {
+        connect(this, &QProcess::readyReadStandardOutput, this, [this]() {
             auto log = readAllStandardOutput();
             if (!Configs::dataStore->core_running) {
                 if (log.contains("Core listening at")) {
@@ -53,17 +52,17 @@ namespace Configs_sys {
             if (logCounter.fetchAndAddRelaxed(log.count("\n")) > Configs::dataStore->max_log_line) return;
             MW_show_log(log);
         });
-        connect(this, &QProcess::readyReadStandardError, this, [&]() {
+        connect(this, &QProcess::readyReadStandardError, this, [this]() {
             auto log = readAllStandardError().trimmed();
             MW_show_log(log);
         });
-        connect(this, &QProcess::errorOccurred, this, [&](ProcessError error) {
+        connect(this, &QProcess::errorOccurred, this, [this](ProcessError error) {
             if (error == FailedToStart) {
                 failed_to_start = true;
                 MW_show_log("start core error occurred: " + errorString() + "\n");
             }
         });
-        connect(this, &QProcess::stateChanged, this, [&](ProcessState state) {
+        connect(this, &QProcess::stateChanged, this, [this](ProcessState state) {
             if (state == NotRunning) {
                 Configs::dataStore->core_running = false;
                 qDebug() << "Core stated changed to not running";
@@ -77,7 +76,7 @@ namespace Configs_sys {
                 runOnUiThread([=, this]
                 {
                     GetMainWindow()->profile_stop(true, true);
-                }, true);
+                });
 
                 // Retry rate limit
                 if (coreRestartTimer.isValid()) {
@@ -109,7 +108,7 @@ namespace Configs_sys {
     void CoreProcess::Restart() {
         restarting = true;
         kill();
-        waitForFinished(500);
+        waitForFinished(1500);
         started = false;
         Start();
         restarting = false;

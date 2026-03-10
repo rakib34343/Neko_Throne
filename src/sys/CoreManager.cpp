@@ -34,18 +34,22 @@ namespace Configs_sys {
     CoreManager::CoreManager(QObject *parent) : QObject(parent), d(new Impl) {
         auto *vp = CoreVersionParser::instance();
         connect(vp, &CoreVersionParser::versionParsed, this, [this](const CoreVersionInfo &info) {
-            QMutexLocker lock(&d->mu);
-            d->singbox.version = info.singboxVersion;
-            d->singbox.available = info.singboxAvailable;
-            d->singbox.running = (info.singboxStatus == "running");
-            d->singbox.binaryPath = coreBinaryPath();
+            QList<CoreInfo> cores;
+            {
+                QMutexLocker lock(&d->mu);
+                d->singbox.version = info.singboxVersion;
+                d->singbox.available = info.singboxAvailable;
+                d->singbox.running = (info.singboxStatus == "running");
+                d->singbox.binaryPath = coreBinaryPath();
 
-            d->xray.version = info.xrayVersion;
-            d->xray.available = info.xrayAvailable;
-            d->xray.running = (info.xrayStatus == "running");
-            d->xray.binaryPath = coreBinaryPath();
+                d->xray.version = info.xrayVersion;
+                d->xray.available = info.xrayAvailable;
+                d->xray.running = (info.xrayStatus == "running");
+                d->xray.binaryPath = coreBinaryPath();
 
-            emit coreInfoUpdated(allCores());
+                cores = {d->singbox, d->xray};
+            }
+            emit coreInfoUpdated(cores);
         });
     }
 
@@ -78,12 +82,6 @@ namespace Configs_sys {
             platform = "windows-amd64";
 #elif defined(Q_OS_LINUX)
             platform = "linux-amd64";
-#elif defined(Q_OS_MACOS)
-    #if defined(Q_PROCESSOR_ARM)
-            platform = "darwin-arm64";
-    #else
-            platform = "darwin-amd64";
-    #endif
 #endif
             // Fetch latest release info
             auto resp = Configs_network::NetworkRequestHelper::HttpGet(

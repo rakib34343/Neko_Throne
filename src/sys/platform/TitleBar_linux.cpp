@@ -2,7 +2,7 @@
 // TitleBar platform helpers — Linux implementation
 // Handles Wayland CSD, X11 frameless fallback.
 
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(_WIN32)
 
 #include "include/ui/core/TitleBar.hpp"
 
@@ -54,4 +54,4 @@ void installSnapLayoutFilter(QWidget *, TitleBar *) {
 
 }  // namespace Platform
 
-#endif // !_WIN32 && !__APPLE__
+#endif // !_WIN32
