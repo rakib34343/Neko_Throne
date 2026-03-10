@@ -107,8 +107,6 @@ jobs:
           ART="download-artifact/NekoThrone-go-${{ matrix.cross_os }}-${{ matrix.cross_arch }}"
           mkdir -p "$ART"
           cp go-artifacts.tgz "$ART/artifacts.tgz"
-          echo ">> Created artifact directory: $ART"
-          ls -la download-artifact/
 
       # ── C++ toolchain ──────────────────────────────────────────────────
       - name: Install MSVC
