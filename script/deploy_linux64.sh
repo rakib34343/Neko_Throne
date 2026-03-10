@@ -26,13 +26,24 @@ fi
 #### copy Throne.png ####
 cp ./res/public/Throne.png $DEST
 
-echo ">> Current directory: $(pwd)"
-echo ">> Looking for: download-artifact/*linux-$ARCH"
-ls -la download-artifact/ || echo "download-artifact not found!"
-cd download-artifact
-cd *linux-$ARCH
-tar xvzf artifacts.tgz -C ../../
-cd ../..
+echo ">> DEBUG: Current directory: $(pwd)"
+echo ">> DEBUG: ARCH=$ARCH"
+echo ">> DEBUG: Extracting Go artifacts from download-artifact"
+
+if [ -d "download-artifact" ]; then
+  GO_ARTIFACT_DIR=$(find download-artifact -type d -name "*linux-$ARCH" | head -1)
+  if [ -n "$GO_ARTIFACT_DIR" ] && [ -f "$GO_ARTIFACT_DIR/artifacts.tgz" ]; then
+    echo ">> Found Go artifacts in: $GO_ARTIFACT_DIR"
+    tar xzf "$GO_ARTIFACT_DIR/artifacts.tgz"
+  else
+    echo "ERROR: Go artifacts not found in download-artifact/*linux-$ARCH"
+    ls -la download-artifact/
+    exit 1
+  fi
+else
+  echo "ERROR: download-artifact directory not found"
+  exit 1
+fi
 
 sudo add-apt-repository -y universe
 sudo apt-get update -qq

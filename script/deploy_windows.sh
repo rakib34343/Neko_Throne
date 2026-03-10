@@ -31,13 +31,24 @@ if [ -d "$BUILD/lang" ]; then
 fi
 
 #### extract Go artifacts ####
-echo ">> Current directory: $(pwd)"
-echo ">> ARCH=$ARCH, looking for: download-artifact/*$ARCH"
-ls -la download-artifact/ || echo "download-artifact not found!"
-cd download-artifact
-cd *$ARCH
-tar xvzf artifacts.tgz -C ../../
-cd ../..
+echo ">> DEBUG: Current directory: $(pwd)"
+echo ">> DEBUG: ARCH=$ARCH"
+echo ">> DEBUG: Extracting Go artifacts from download-artifact"
+
+if [ -d "download-artifact" ]; then
+  GO_ARTIFACT_DIR=$(find download-artifact -type d -name "*$ARCH" | head -1)
+  if [ -n "$GO_ARTIFACT_DIR" ] && [ -f "$GO_ARTIFACT_DIR/artifacts.tgz" ]; then
+    echo ">> Found Go artifacts in: $GO_ARTIFACT_DIR"
+    tar xzf "$GO_ARTIFACT_DIR/artifacts.tgz"
+  else
+    echo "ERROR: Go artifacts not found in download-artifact/*$ARCH"
+    ls -la download-artifact/
+    exit 1
+  fi
+else
+  echo "ERROR: download-artifact directory not found"
+  exit 1
+fi
 
 #### deploy Qt runtime DLLs (shared Qt only) ####
 # Detect whether this is a shared or static Qt build.
