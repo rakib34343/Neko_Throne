@@ -7,6 +7,7 @@
 
 #include <QDnsLookup>
 #include <QEventLoop>
+#include <QHostAddress>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QtConcurrent>
