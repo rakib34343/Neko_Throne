@@ -7,6 +7,9 @@
 #include "include/api/RPC.h"
 #include "3rdparty/qv2ray/v2/proxy/QvProxyConfigurator.hpp"
 
+#include <QDnsLookup>
+#include <QEventLoop>
+#include <QTimer>
 #include <QProcess>
 #include <QtConcurrent>
 
@@ -212,28 +215,30 @@ bool ProxyStateManager::validateRoutingTable() {
 }
 
 bool ProxyStateManager::validateDNSResolution() {
-    // Quick DNS probe to ensure DNS is not leaking in Block mode,
-    // and is functional in Direct/Proxy modes.
-    QProcess proc;
-#ifdef Q_OS_WIN
-    proc.start(QStringLiteral("nslookup"),
-        {QStringLiteral("dns.google"), QStringLiteral("127.0.0.1")});
-#else
-    proc.start(QStringLiteral("dig"),
-        {QStringLiteral("+short"), QStringLiteral("+time=2"),
-         QStringLiteral("dns.google"), QStringLiteral("@127.0.0.1")});
-#endif
-    proc.waitForFinished(3000);
+    // Use Qt's native QDnsLookup — no dependency on dig/nslookup system tools.
+    // Called from a QtConcurrent thread, so a nested event loop is safe here.
+    QEventLoop loop;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+    timeout.setInterval(3000);
+    QDnsLookup dns;
+    dns.setType(QDnsLookup::A);
+    dns.setName(QStringLiteral("dns.google"));
+    QObject::connect(&dns, &QDnsLookup::finished, &loop, &QEventLoop::quit);
+    QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    dns.lookup();
+    timeout.start();
+    loop.exec();
 
-    bool resolved = proc.exitCode() == 0
-                    && !proc.readAllStandardOutput().trimmed().isEmpty();
+    bool resolved = (dns.error() == QDnsLookup::NoError)
+                    && !dns.hostAddressRecords().isEmpty();
 
     switch (m_mode.load(std::memory_order_acquire)) {
     case ProxyMode::Direct:
     case ProxyMode::Proxy:
-        return true; // DNS should work (we don't control external DNS here)
+        return true;
     case ProxyMode::Block:
-        return !resolved; // In Block mode, DNS MUST fail to external servers
+        return !resolved;
     }
     return true;
 }

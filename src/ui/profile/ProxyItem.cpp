@@ -20,8 +20,14 @@ ProxyItem::~ProxyItem() {
 
 void ProxyItem::refresh_data() {
     ui->type->setText(ent->outbound->DisplayType());
-    ui->name->setText(ent->outbound->DisplayName());
-    ui->address->setText(ent->outbound->DisplayAddress());
+    auto nameWidth = ui->name->width();
+    ui->name->setText(nameWidth > 8
+        ? ui->name->fontMetrics().elidedText(ent->outbound->DisplayName(), Qt::ElideRight, nameWidth - 4)
+        : ent->outbound->DisplayName());
+    auto addrWidth = ui->address->width();
+    ui->address->setText(addrWidth > 8
+        ? ui->address->fontMetrics().elidedText(ent->outbound->DisplayAddress(), Qt::ElideRight, addrWidth - 4)
+        : ent->outbound->DisplayAddress());
     ui->traffic->setText(ent->traffic_data->DisplayTraffic());
     ui->test_result->setText(ent->DisplayTestResult());
 

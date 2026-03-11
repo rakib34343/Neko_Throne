@@ -24,6 +24,9 @@ public:
 
     void reject();
 
+protected:
+    void changeEvent(QEvent *e) override;
+
 private:
     void generateShortcutItems(const QList<QAction*>& actions);
     QMap<QtExtKeySequenceEdit*, QString> seqEdit2ID;

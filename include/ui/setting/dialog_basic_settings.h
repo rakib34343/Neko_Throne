@@ -21,6 +21,9 @@ public slots:
 
     void accept();
 
+protected:
+    void changeEvent(QEvent *e) override;
+
 private:
     Ui::DialogBasicSettings *ui;
 

@@ -19,7 +19,7 @@ on:
 
 env:
   QT_VERSION: "6.10.2"
-  GO_VERSION: "1.25.8"
+  GO_VERSION: "1.24.2"
   CCACHE_MAXSIZE: 500M
   CCACHE_COMPRESS: "true"
   CCACHE_COMPRESSLEVEL: "6"
@@ -207,6 +207,15 @@ jobs:
         shell: bash
         run: ccache -s
 
+      - name: 📝 Итог сборки
+        if: always()
+        shell: bash
+        run: |
+          echo "### 🏗️ Сборка завершена: ${{ matrix.os_label }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Платформа: \`${{ matrix.platform }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Go версия: \`${{ env.GO_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Qt версия: \`${{ env.QT_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+
       # ── Загрузка артефактов ────────────────────────────────────────────
       - name: 📤 Загрузка артефактов
         uses: actions/upload-artifact@v4.6.2
@@ -242,3 +251,8 @@ jobs:
         run: ./scripts/ci/release_pack.sh
       - uses: actions/upload-artifact@v4.6.2
         with: { name: debug-symbols, path: debug-symbols.zip }
+
+      - name: 📝 Итог публикации
+        if: always()
+        run: |
+          echo "### 🚀 Релиз: ${{ env.INPUT_VERSION }}" >> $GITHUB_STEP_SUMMARY

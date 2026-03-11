@@ -13,7 +13,7 @@ namespace Configs_sys {
             terminate();
             if (!waitForFinished(3000)) {
                 kill();
-                waitForFinished(1000);
+                waitForFinished(2000);
             }
         }
     }
@@ -21,9 +21,12 @@ namespace Configs_sys {
     void CoreProcess::Kill() {
         if (state() != QProcess::Running) return;
         terminate();
-        if (!waitForFinished(1500)) {
+        if (!waitForFinished(2000)) {
+            MW_show_log("[Warn] Core did not respond to SIGTERM, force killing...\n");
             kill();
-            waitForFinished(500);
+            if (!waitForFinished(2000)) {
+                MW_show_log("[ERROR] Core process could not be force killed!\n");
+            }
         }
     }
 
@@ -65,7 +68,7 @@ namespace Configs_sys {
         connect(this, &QProcess::stateChanged, this, [this](ProcessState state) {
             if (state == NotRunning) {
                 Configs::dataStore->core_running = false;
-                qDebug() << "Core stated changed to not running";
+                qDebug() << "Core state changed to not running";
             }
 
             if (!Configs::dataStore->prepare_exit && state == NotRunning) {
@@ -107,8 +110,11 @@ namespace Configs_sys {
 
     void CoreProcess::Restart() {
         restarting = true;
-        kill();
-        waitForFinished(1500);
+        terminate();
+        if (!waitForFinished(2000)) {
+            kill();
+            waitForFinished(2000);
+        }
         started = false;
         Start();
         restarting = false;

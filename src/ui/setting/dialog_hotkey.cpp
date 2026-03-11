@@ -60,6 +60,12 @@ void DialogHotkey::reject()
     QDialog::reject();
 }
 
+void DialogHotkey::changeEvent(QEvent *e) {
+    QDialog::changeEvent(e);
+    if (e->type() == QEvent::LanguageChange)
+        ui->retranslateUi(this);
+}
+
 DialogHotkey::~DialogHotkey() {
     delete ui;
 }
