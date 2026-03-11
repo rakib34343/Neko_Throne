@@ -66,7 +66,7 @@ namespace Configs_ConfigItem {
             case itemType::integer64:
                 *(long long *) item->ptr = *(long long *) p;
                 break;
-            // others...
+            // not handled via setValue — use FromJson/ToJson for these types instead
             case stringList:
             case integerList:
             case jsonStore:
@@ -104,7 +104,7 @@ namespace Configs_ConfigItem {
                     break;
                 }
                 case itemType::jsonStore:
-                    // _add 时应关联对应 JsonStore 的指针
+                    // The pointer registered via _add must point to a valid nested JsonStore.
                     object.insert(item->name, ((JsonStore *) item->ptr)->ToJson());
                     break;
                 case itemType::jsonStoreList:
@@ -136,9 +136,9 @@ namespace Configs_ConfigItem {
             auto item = _map[key].get();
 
             if (item == nullptr)
-                continue; // 故意忽略
+                continue; // intentionally ignored — key exists in JSON but not in map
 
-            // 根据类型修改ptr的内容
+            // Update the field value based on its registered type.
             switch (item->type) {
                 case itemType::string:
                     if (value.type() != QJsonValue::String) {
@@ -417,9 +417,9 @@ namespace Configs {
         fn += ".exe";
 #endif
         auto fi = QFileInfo(fn);
-        QString path;
-        if (fi.isSymLink()) path =  fi.symLinkTarget();
-        path = fn;
+        // Only use the symlink target when the file actually is a symlink;
+        // otherwise fall back to the canonical path.
+        QString path = fi.isSymLink() ? fi.symLinkTarget() : fn;
 #ifdef Q_OS_WIN
         path.replace("/", "\\");
 #endif
@@ -428,11 +428,20 @@ namespace Configs {
 
     short isAdminCache = -1;
 
+    // isSetuidSet — checks whether the SUID bit is set on the given binary.
+    // Used to detect if the core binary has elevated privileges on Linux.
     bool isSetuidSet(const std::string& path) {
+#ifdef Q_OS_LINUX
+        struct stat st{};
+        if (::stat(path.c_str(), &st) != 0) return false;
+        return (st.st_mode & S_ISUID) != 0;
+#else
+        (void) path;
         return false;
+#endif
     }
 
-    // IsAdmin 主要判断：有无权限启动 Tun
+    // IsAdmin — primary check: does the running process have privileges to start TUN?
     bool IsAdmin(bool forceRenew) {
         if (isAdminCache >= 0 && !forceRenew) return isAdminCache;
 

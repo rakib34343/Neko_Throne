@@ -5,6 +5,8 @@
 #include "include/sys/NetworkLeakGuard.hpp"
 #include "include/global/Configs.hpp"
 
+#include <QDnsLookup>
+#include <QEventLoop>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QtConcurrent>
@@ -77,7 +79,7 @@ void NetworkLeakGuard::stopMonitoring() {
 LeakAuditResult NetworkLeakGuard::auditRoutingTable() {
     LeakAuditResult r;
     r.routingIntact = true;
-    r. tunInterfaceUp = true;
+    r.tunInterfaceUp = true;
 
     bool vpnMode = Configs::dataStore && Configs::dataStore->spmode_vpn;
 
@@ -136,36 +138,38 @@ LeakAuditResult NetworkLeakGuard::auditDNSLeaks() {
         return r;
     }
 
-    // Query a well-known domain via the system resolver.
-    // If we are in VPN mode, ALL DNS should resolve through our TUN/proxy.
-    QProcess proc;
-#ifdef Q_OS_WIN
-    proc.start(QStringLiteral("nslookup"),
-        {QStringLiteral("whoami.akamai.net")});
-#else
-    proc.start(QStringLiteral("dig"),
-        {QStringLiteral("+short"), QStringLiteral("+time=2"),
-         QStringLiteral("+tries=1"), QStringLiteral("whoami.akamai.net")});
-#endif
+    // Use Qt's built-in QDnsLookup for a portable, tool-independent DNS probe.
+    // This avoids any dependency on 'dig' or 'nslookup' system utilities.
+    // NOTE: This function is always called from a QtConcurrent worker thread,
+    //       so the nested event loop is safe here.
+    QEventLoop loop;
+    QTimer dnsTimeout;
+    dnsTimeout.setSingleShot(true);
+    dnsTimeout.setInterval(5000);
+    QDnsLookup dns;
+    dns.setType(QDnsLookup::A);
+    dns.setName(QStringLiteral("whoami.akamai.net"));
+    QObject::connect(&dns, &QDnsLookup::finished, &loop, &QEventLoop::quit);
+    QObject::connect(&dnsTimeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    dns.lookup();
+    dnsTimeout.start();
+    loop.exec();
 
-    if (!proc.waitForFinished(5000)) {
-        r.diagnostics << QStringLiteral("DNS probe timed out");
+    if (dns.error() != QDnsLookup::NoError) {
+        if (vpnMode) {
+            r.dnsLeakFree = false;
+            r.diagnostics << QStringLiteral("DNS probe failed in VPN mode: ") + dns.errorString();
+        } else {
+            r.diagnostics << QStringLiteral("DNS probe failed: ") + dns.errorString();
+        }
         return r;
     }
 
-    auto output = QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
-
-    // If the response contains our ISP's DNS IP (rather than proxy exit),
-    // that indicates a DNS leak. For now, we just verify the query resolved
-    // and that in Block mode it should NOT resolve at all.
-    // The real check would compare resolved IP vs known proxy exit IPs.
-    if (output.isEmpty()) {
-        if (vpnMode) {
-            r.dnsLeakFree = false;
-            r.diagnostics << QStringLiteral("DNS resolution failed in VPN mode (possible misconfiguration)");
-        }
+    const auto addresses = dns.hostAddressRecords();
+    if (addresses.isEmpty()) {
+        r.diagnostics << QStringLiteral("DNS probe: no A records returned for whoami.akamai.net");
     } else {
-        r.diagnostics << QStringLiteral("DNS probe resolved: ") + output;
+        r.diagnostics << QStringLiteral("DNS probe resolved: ") + addresses.first().value().toString();
     }
 
     return r;
@@ -195,6 +199,22 @@ LeakAuditResult NetworkLeakGuard::auditIPv6() {
                 r.diagnostics << QStringLiteral("IPv6 default route does NOT use TUN — potential leak");
             }
         }
+#elif defined(Q_OS_WIN)
+        // On Windows, check IPv6 routes for a TUN interface using netsh.
+        QProcess proc;
+        proc.start(QStringLiteral("netsh"),
+            {QStringLiteral("interface"), QStringLiteral("ipv6"),
+             QStringLiteral("show"), QStringLiteral("route")});
+        if (proc.waitForFinished(3000)) {
+            auto output = QString::fromUtf8(proc.readAllStandardOutput());
+            static const QRegularExpression rxTunWin(QStringLiteral(R"((sing-tun|Wintun|tun\d+))"));
+            if (!rxTunWin.match(output).hasMatch()) {
+                r.ipv6Contained = false;
+                r.diagnostics << QStringLiteral("IPv6 route table does not include TUN interface on Windows — potential leak");
+            }
+        } else {
+            r.diagnostics << QStringLiteral("netsh IPv6 route query timed out or failed — IPv6 tunnel state unknown");
+        }
 #endif
     } else {
         r.diagnostics << QStringLiteral("IPv6 disabled by user setting");
@@ -211,7 +231,13 @@ void NetworkLeakGuard::blockIPv6Leaks() {
     QProcess::execute(QStringLiteral("sysctl"),
         {QStringLiteral("-w"), QStringLiteral("net.ipv6.conf.default.disable_ipv6=1")});
 #elif defined(Q_OS_WIN)
-    // Windows: Disable IPv6 on all adapters via registry
+    // NOTE: This registry write disables IPv6 system-wide and persists across
+    // reboots. Only apply when the process is confirmed to be running as admin.
+    if (!Configs::IsAdmin()) {
+        // Cannot apply IPv6 block without administrator privileges.
+        qWarning() << "NetworkLeakGuard: blockIPv6Leaks skipped — not running as administrator";
+        return;
+    }
     QProcess::execute(QStringLiteral("reg"),
         {QStringLiteral("add"),
          QStringLiteral(R"(HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters)"),
