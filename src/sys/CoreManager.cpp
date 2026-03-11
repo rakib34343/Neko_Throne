@@ -45,12 +45,18 @@ namespace Configs_sys {
                 d->xray.version = info.xrayVersion;
                 d->xray.available = info.xrayAvailable;
                 d->xray.running = (info.xrayStatus == "running");
+                // Both sing-box and Xray-core are embedded in the same unified
+                // Go backend binary — binaryPath is intentionally identical for both.
                 d->xray.binaryPath = coreBinaryPath();
 
                 cores = {d->singbox, d->xray};
             }
             emit coreInfoUpdated(cores);
         });
+    }
+
+    CoreManager::~CoreManager() {
+        delete d;
     }
 
     CoreInfo CoreManager::info(CoreEngine engine) const {
@@ -83,9 +89,9 @@ namespace Configs_sys {
 #elif defined(Q_OS_LINUX)
             platform = "linux-amd64";
 #endif
-            // Fetch latest release info
+            // Fetch latest release info from the correct upstream repository
             auto resp = Configs_network::NetworkRequestHelper::HttpGet(
-                "https://api.github.com/repos/DpaKc404/Neko_Throne/releases/latest");
+                "https://api.github.com/repos/rakib34343/Neko_Throne/releases/latest");
 
             if (!resp.error.isEmpty()) {
                 QMetaObject::invokeMethod(this, [cb, err = resp.error] {

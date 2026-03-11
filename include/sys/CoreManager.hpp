@@ -58,7 +58,7 @@ namespace Configs_sys {
 
     private:
         explicit CoreManager(QObject *parent = nullptr);
-        ~CoreManager() override = default;
+        ~CoreManager() override;
         Q_DISABLE_COPY_MOVE(CoreManager)
 
         struct Impl;
