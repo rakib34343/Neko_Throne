@@ -5,9 +5,7 @@
 #include "include/sys/NetworkLeakGuard.hpp"
 #include "include/global/Configs.hpp"
 
-#include <QDnsLookup>
-#include <QEventLoop>
-#include <QHostAddress>
+#include <QHostInfo>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QTimer>
@@ -94,7 +92,10 @@ LeakAuditResult NetworkLeakGuard::auditRoutingTable() {
 
     if (!proc.waitForFinished(3000)) {
         r.routingIntact = false;
-        r.diagnostics << QStringLiteral("Routing table query timed out");
+        if (proc.error() == QProcess::FailedToStart)
+            r.diagnostics << QStringLiteral("Routing table query failed: process could not start");
+        else
+            r.diagnostics << QStringLiteral("Routing table query timed out");
         return r;
     }
 
@@ -127,8 +128,9 @@ LeakAuditResult NetworkLeakGuard::auditRoutingTable() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // DNS Leak Audit
 // ═══════════════════════════════════════════════════════════════════════════════
-// Uses Qt's built-in QDnsLookup for a portable, tool-independent DNS probe.
-// This avoids any dependency on 'dig' or 'nslookup' system utilities.
+// Uses QHostInfo::fromName (synchronous/blocking) for DNS probing.
+// This is portable and does not require a running event loop in the calling thread,
+// making it safe to use from QtConcurrent worker threads.
 
 LeakAuditResult NetworkLeakGuard::auditDNSLeaks() {
     LeakAuditResult r;
@@ -140,42 +142,24 @@ LeakAuditResult NetworkLeakGuard::auditDNSLeaks() {
         return r;
     }
 
-    // NOTE: This function is always called from a QtConcurrent worker thread,
-    //       so the nested event loop is safe here.
-    QEventLoop loop;
-    QTimer dnsTimeout;
-    dnsTimeout.setSingleShot(true);
-    dnsTimeout.setInterval(5000);
-
-    QDnsLookup dns;
-    dns.setType(QDnsLookup::A);
-    dns.setName(QStringLiteral("whoami.akamai.net"));
-
-    QObject::connect(&dns, &QDnsLookup::finished, &loop, &QEventLoop::quit);
-    QObject::connect(&dnsTimeout, &QTimer::timeout, &loop, &QEventLoop::quit);
-
-    dns.lookup();
-    dnsTimeout.start();
-    loop.exec();
-
-    if (dns.error() != QDnsLookup::NoError) {
+    // QHostInfo::fromName is a blocking synchronous call that works in any thread.
+    QHostInfo info = QHostInfo::fromName(QStringLiteral("dns.google"));
+    if (info.error() != QHostInfo::NoError) {
         if (vpnMode) {
             r.dnsLeakFree = false;
-            r.diagnostics << QStringLiteral("DNS probe failed in VPN mode: ") + dns.errorString();
+            r.diagnostics << QStringLiteral("DNS probe failed in VPN mode: ") + info.errorString();
         } else {
-            r.diagnostics << QStringLiteral("DNS probe failed: ") + dns.errorString();
+            r.diagnostics << QStringLiteral("DNS probe failed: ") + info.errorString();
         }
         return r;
     }
 
-    const auto addresses = dns.hostAddressRecords();
-    if (addresses.isEmpty()) {
-        r.diagnostics << QStringLiteral("DNS probe: no A records returned for whoami.akamai.net");
+    const auto addresses = info.addresses();
+    if (!addresses.isEmpty()) {
+        r.diagnostics << QStringLiteral("DNS probe resolved: ") + addresses.first().toString();
     } else {
-        // QDnsHostAddressRecord::value() returns a QHostAddress — requires <QHostAddress>
-        r.diagnostics << QStringLiteral("DNS probe resolved: ") + addresses.first().value().toString();
+        r.diagnostics << QStringLiteral("DNS probe: no addresses returned for dns.google");
     }
-
     return r;
 }
 
@@ -195,7 +179,7 @@ LeakAuditResult NetworkLeakGuard::auditIPv6() {
 #ifdef Q_OS_LINUX
         QProcess proc;
         proc.start(QStringLiteral("ip"), {QStringLiteral("-6"), QStringLiteral("route"), QStringLiteral("show"), QStringLiteral("default")});
-        if (proc.waitForFinished(3000)) {
+        if (proc.waitForFinished(3000) && proc.error() != QProcess::FailedToStart) {
             auto output = QString::fromUtf8(proc.readAllStandardOutput());
             static const QRegularExpression rxTun(QStringLiteral(R"((tun\d+|sing-tun))"));
             if (!rxTun.match(output).hasMatch()) {
@@ -207,9 +191,9 @@ LeakAuditResult NetworkLeakGuard::auditIPv6() {
         // On Windows, check IPv6 routes for a TUN interface using netsh.
         QProcess proc;
         proc.start(QStringLiteral("netsh"),
-            {QStringLiteral("interface"), QStringLiteral("ipv6",
+            {QStringLiteral("interface"), QStringLiteral("ipv6"),
              QStringLiteral("show"), QStringLiteral("route")});
-        if (proc.waitForFinished(3000)) {
+        if (proc.waitForFinished(3000) && proc.error() != QProcess::FailedToStart) {
             auto output = QString::fromUtf8(proc.readAllStandardOutput());
             static const QRegularExpression rxTunWin(QStringLiteral(R"((sing-tun|Wintun|tun\d+))"));
             if (!rxTunWin.match(output).hasMatch()) {
@@ -280,6 +264,8 @@ bool NetworkLeakGuard::isTunInterfaceUp() const {
         {QStringLiteral("interface"), QStringLiteral("show"), QStringLiteral("interface")});
 #endif
     if (!proc.waitForFinished(3000))
+        return false;
+    if (proc.error() == QProcess::FailedToStart)
         return false;
 
     auto output = QString::fromUtf8(proc.readAllStandardOutput());

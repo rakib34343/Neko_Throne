@@ -7,9 +7,7 @@
 #include "include/api/RPC.h"
 #include "3rdparty/qv2ray/v2/proxy/QvProxyConfigurator.hpp"
 
-#include <QDnsLookup>
-#include <QEventLoop>
-#include <QTimer>
+#include <QHostInfo>
 #include <QProcess>
 #include <QtConcurrent>
 
@@ -215,23 +213,11 @@ bool ProxyStateManager::validateRoutingTable() {
 }
 
 bool ProxyStateManager::validateDNSResolution() {
-    // Use Qt's native QDnsLookup — no dependency on dig/nslookup system tools.
-    // Called from a QtConcurrent thread, so a nested event loop is safe here.
-    QEventLoop loop;
-    QTimer timeout;
-    timeout.setSingleShot(true);
-    timeout.setInterval(3000);
-    QDnsLookup dns;
-    dns.setType(QDnsLookup::A);
-    dns.setName(QStringLiteral("dns.google"));
-    QObject::connect(&dns, &QDnsLookup::finished, &loop, &QEventLoop::quit);
-    QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
-    dns.lookup();
-    timeout.start();
-    loop.exec();
-
-    bool resolved = (dns.error() == QDnsLookup::NoError)
-                    && !dns.hostAddressRecords().isEmpty();
+    // Use QHostInfo::fromName (synchronous/blocking) — works safely in any thread,
+    // including QtConcurrent worker threads that have no event loop.
+    QHostInfo info = QHostInfo::fromName(QStringLiteral("dns.google"));
+    bool resolved = (info.error() == QHostInfo::NoError)
+                    && !info.addresses().isEmpty();
 
     switch (m_mode.load(std::memory_order_acquire)) {
     case ProxyMode::Direct:
