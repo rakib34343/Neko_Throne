@@ -581,11 +581,11 @@ void MainWindow::profile_start(int _id) {
         return true;
     };
 
-    if (!mu_starting.tryLock(500)) {
+    if (!mu_starting.tryLock()) {
         MessageBoxWarning(software_name, tr("Another profile is starting..."));
         return;
     }
-    if (!mu_stopping.tryLock(500)) {
+    if (!mu_stopping.tryLock()) {
         MessageBoxWarning(software_name, tr("Another profile is stopping..."));
         mu_starting.unlock();
         return;
@@ -625,14 +625,8 @@ void MainWindow::profile_start(int _id) {
             {
                 profile_stop(false, false, true);
             }, true);
-            // Wait for stop to complete with timeout
-            if (!mu_stopping.tryLock(30000)) {
-                MW_show_log("[Warn] " + tr("Profile stop timed out, forcing cleanup..."));
-                running = nullptr;
-                Configs::dataStore->need_keep_vpn_off = false;
-            } else {
-                mu_stopping.unlock();
-            }
+            mu_stopping.lock();
+            mu_stopping.unlock();
         }
         // do start
         MW_show_log(">>>>>>>> " + tr("Starting profile %1").arg(ent->outbound->DisplayTypeAndName()));
@@ -692,13 +686,15 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
         return true;
     };
 
-    if (!mu_stopping.tryLock(500)) {
+    if (!mu_stopping.tryLock()) {
         return;
     }
+    QMutex blocker;
+    if (block) blocker.lock();
 
     UpdateConnectionListWithRecreate({});
 
-    runOnNewThread([=, this] {
+    runOnNewThread([=, this, &blocker] {
         Stats::trafficLooper->loop_enabled = false;
         Stats::connection_lister->suspend = true;
         if (Stats::trafficLooper->loop_mutex.tryLock(5000)) {
@@ -729,11 +725,18 @@ void MainWindow::profile_stop(bool crash, bool block, bool manual) {
         Configs::dataStore->need_keep_vpn_off = false;
         running = nullptr;
 
+        if (block) blocker.unlock();
+
         runOnUiThread([=, this] {
             refresh_status();
             refresh_proxy_list_impl_refresh_data(id, true);
 
             mu_stopping.unlock();
-        }, true);
-    }, block);
+        });
+    });
+
+    if (block) {
+        blocker.lock();
+        blocker.unlock();
+    }
 }

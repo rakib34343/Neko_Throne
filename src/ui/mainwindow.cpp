@@ -45,7 +45,6 @@
 #include <QThread>
 #include <QTimer>
 #include <QMessageBox>
-#include <QSemaphore>
 #include <QDir>
 #include <QFileInfo>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
@@ -983,10 +982,7 @@ void MainWindow::on_commitDataRequest() {
 void MainWindow::prepare_exit()
 {
     qDebug() << "prepare for exit...";
-    if (!mu_exit.tryLock(1000)) {
-        qDebug() << "prepare_exit: another exit in progress, skipping";
-        return;
-    }
+    mu_exit.lock();
     if (Configs::dataStore->prepare_exit)
     {
         qDebug() << "prepare exit had already succeeded, ignoring...";
@@ -1004,28 +1000,12 @@ void MainWindow::prepare_exit()
     on_commitDataRequest();
     //
     Configs::dataStore->save_control_no_save = true; // don't change datastore after this line
+    profile_stop(false, true);
 
-    // Stop profile with timeout — don't block forever
-    profile_stop(false, false);
-    // Wait up to 5 seconds for profile to stop gracefully
-    if (mu_stopping.tryLock(5000)) {
-        mu_stopping.unlock();
-    } else {
-        qDebug() << "prepare_exit: profile stop timed out, forcing cleanup";
-        running = nullptr;
-    }
-
-    // Kill core process with timeout
-    auto killDone = std::make_shared<QSemaphore>();
     runOnThread([=, this]()
     {
         core_process->Kill();
-        killDone->release();
-    }, DS_cores);
-    if (!killDone->tryAcquire(1, 5000)) {
-        qDebug() << "prepare_exit: core kill timed out, forcing termination";
-        core_process->kill();
-    }
+    }, DS_cores, true);
 
     // Ensure IPv6 and leak guard are restored before exit
     NetworkLeakGuard::instance()->stopMonitoring();

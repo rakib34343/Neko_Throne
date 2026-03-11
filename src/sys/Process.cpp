@@ -75,8 +75,8 @@ namespace Configs_sys {
                 MW_show_log("[Fatal] " + QObject::tr("Core exited, cleaning up..."));
                 runOnUiThread([=, this]
                 {
-                    GetMainWindow()->profile_stop(true, false);
-                });
+                    GetMainWindow()->profile_stop(true, true);
+                }, true);
 
                 // Retry rate limit
                 if (coreRestartTimer.isValid()) {
