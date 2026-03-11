@@ -357,3 +357,9 @@ void DialogBasicSettings::on_core_settings_clicked() {
     w->exec();
     w->deleteLater();
 }
+
+void DialogBasicSettings::changeEvent(QEvent *e) {
+    QDialog::changeEvent(e);
+    if (e->type() == QEvent::LanguageChange)
+        ui->retranslateUi(this);
+}

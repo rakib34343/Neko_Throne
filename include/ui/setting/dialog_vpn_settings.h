@@ -18,6 +18,9 @@ public:
 
     ~DialogVPNSettings() override;
 
+protected:
+    void changeEvent(QEvent *e) override;
+
 private:
     Ui::DialogVPNSettings *ui;
 
