@@ -39,6 +39,12 @@ DialogVPNSettings::~DialogVPNSettings() {
     delete ui;
 }
 
+void DialogVPNSettings::changeEvent(QEvent *e) {
+    QDialog::changeEvent(e);
+    if (e->type() == QEvent::LanguageChange)
+        ui->retranslateUi(this);
+}
+
 void DialogVPNSettings::accept() {
     //
     auto mtu = ui->vpn_mtu->currentText().toInt();

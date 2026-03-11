@@ -1,5 +1,6 @@
 #include "include/ui/profile/ProxyItem.h"
 
+#include <QFontMetrics>
 #include <QMessageBox>
 
 ProxyItem::ProxyItem(QWidget *parent, const std::shared_ptr<Configs::ProxyEntity> &ent, QListWidgetItem *item)
@@ -20,8 +21,16 @@ ProxyItem::~ProxyItem() {
 
 void ProxyItem::refresh_data() {
     ui->type->setText(ent->outbound->DisplayType());
-    ui->name->setText(ent->outbound->DisplayName());
-    ui->address->setText(ent->outbound->DisplayAddress());
+    const int nameW = ui->name->width();
+    auto fmName = ui->name->fontMetrics();
+    ui->name->setText(nameW > 4
+        ? fmName.elidedText(ent->outbound->DisplayName(), Qt::ElideRight, nameW - 4)
+        : ent->outbound->DisplayName());
+    const int addrW = ui->address->width();
+    auto fmAddr = ui->address->fontMetrics();
+    ui->address->setText(addrW > 4
+        ? fmAddr.elidedText(ent->outbound->DisplayAddress(), Qt::ElideRight, addrW - 4)
+        : ent->outbound->DisplayAddress());
     ui->traffic->setText(ent->traffic_data->DisplayTraffic());
     ui->test_result->setText(ent->DisplayTestResult());
 

@@ -1,26 +1,33 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Neko Throne CI/CD — amd64 only (Linux + Windows)
 # ═══════════════════════════════════════════════════════════════════════════════
-name: Neko Throne CI/CD (amd64)
+name: 🏰 Neko Throne — CI/CD (amd64)
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Тег релиза и версия"
+        description: "Версия релиза (например: 1.0.0)"
         required: false
         default: ""
       publish:
-        description: "r — обычный релиз, p — предрелиз, пусто — не публиковать"
-        required: false
+        type: choice
+        description: "Тип публикации: r=релиз, p=предрелиз"
+        options:
+          - ""
+          - r
+          - p
+        default: ""
   push:
     branches: ["**"]
     paths-ignore: ["**.md", LICENSE, "docs/**"]
+  pull_request:
+    branches: [main]
 
 env:
   QT_VERSION: "6.10.2"
-  GO_VERSION: "1.25.8"
-  CCACHE_MAXSIZE: 500M
+  GO_VERSION: "1.24.2"
+  CCACHE_MAXSIZE: "500M"
   CCACHE_COMPRESS: "true"
   CCACHE_COMPRESSLEVEL: "6"
 
@@ -33,7 +40,7 @@ jobs:
 
   # ─── Линтер ───────────────────────────────────────────────────────────────
   lint:
-    name: 🔍 Линтер кода
+    name: 🔍 Линтер
     runs-on: ubuntu-latest
     timeout-minutes: 10
     continue-on-error: true
@@ -46,11 +53,12 @@ jobs:
         if: always()
         with: { name: lint-report, path: lint-report/, retention-days: 7 }
 
-  # ─── Сборка (Go + C++ в одном задании) ────────────────────────────────────
-  build:
-    name: "${{ matrix.os_label }}"
+  # ─── Сборка Go бэкенда ────────────────────────────────────────────────────
+  build-go:
+    name: "🔨 Go бэкенд — ${{ matrix.os_label }}"
+    needs: [lint]
     permissions: { contents: read }
-    timeout-minutes: 60
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -58,14 +66,11 @@ jobs:
           - { platform: ubuntu-22.04,   os_label: linux,   cross_os: linux,   cross_arch: amd64 }
           - { platform: windows-latest, os_label: windows, cross_os: windows, cross_arch: amd64 }
     runs-on: ${{ matrix.platform }}
-    env:
-      INPUT_VERSION: ${{ github.event.inputs.tag }}
 
     steps:
       - uses: actions/checkout@v4.2.2
         with: { submodules: recursive }
 
-      # ── Go бэкенд ──────────────────────────────────────────────────────
       - name: 📦 Кэш Go артефактов
         id: cache-go
         uses: actions/cache@v4.2.3
@@ -101,13 +106,39 @@ jobs:
           ./scripts/ci/build_go.sh
           tar czf go-artifacts.tgz ./deployment
 
+      - name: 📤 Загрузка Go артефактов
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: go-core-${{ matrix.os_label }}-amd64
+          path: go-artifacts.tgz
+          retention-days: 1
+
+  # ─── Сборка C++ приложения ────────────────────────────────────────────────
+  build-cpp:
+    name: "🏗️ Сборка C++ — ${{ matrix.os_label }}"
+    needs: [build-go]
+    permissions: { contents: read }
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: ubuntu-22.04,   os_label: linux,   cross_os: linux,   cross_arch: amd64 }
+          - { platform: windows-latest, os_label: windows, cross_os: windows, cross_arch: amd64 }
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with: { submodules: recursive }
+
       - name: 📂 Распаковка Go артефактов
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: go-core-${{ matrix.os_label }}-amd64
+
+      - name: 📂 Извлечение Go артефактов
         shell: bash
-        run: |
-          tar xzf go-artifacts.tgz
-          ART="download-artifact/NekoThrone-go-${{ matrix.cross_os }}-${{ matrix.cross_arch }}"
-          mkdir -p "$ART"
-          cp go-artifacts.tgz "$ART/artifacts.tgz"
+        run: tar xzf go-artifacts.tgz
 
       # ── C++ инструментарий ─────────────────────────────────────────────
       - name: ⚙️ Установка MSVC
@@ -207,6 +238,11 @@ jobs:
         shell: bash
         run: ccache -s
 
+      - name: 📝 Итоговый отчёт сборки
+        if: success()
+        shell: bash
+        run: echo "### ✅ Build success: ${{ matrix.os_label }}" >> "$GITHUB_STEP_SUMMARY"
+
       # ── Загрузка артефактов ────────────────────────────────────────────
       - name: 📤 Загрузка артефактов
         uses: actions/upload-artifact@v4.6.2
@@ -221,24 +257,48 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [build]
+    needs: [build-cpp]
     permissions: { contents: write, actions: read }
     env:
-      INPUT_VERSION: ${{ github.event.inputs.tag || format('0.5.0-nightly.{0}', github.run_number) }}
+      RELEASE_TAG: ${{ github.event.inputs.tag || format('nightly-{0}', github.run_number) }}
     steps:
       - uses: actions/checkout@v4.2.2
       - uses: actions/download-artifact@v4.3.0
         with: { path: download-artifact }
+
       - name: 📋 Определение режима публикации
+        shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "push" ]]; then
             echo "PUBLISH_MODE=p" >> "$GITHUB_ENV"
           else
             echo "PUBLISH_MODE=${{ github.event.inputs.publish }}" >> "$GITHUB_ENV"
           fi
+
       - name: 📦 Упаковка и публикация
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./scripts/ci/release_pack.sh
+        run: |
+          # Try release_pack.sh first, fall back to gh release create
+          if [[ -x "./scripts/ci/release_pack.sh" ]]; then
+            ./scripts/ci/release_pack.sh
+          else
+            PRERELEASE_FLAG=""
+            [[ "$PUBLISH_MODE" == "p" ]] && PRERELEASE_FLAG="--prerelease"
+            gh release create "$RELEASE_TAG" \
+              $PRERELEASE_FLAG \
+              --title "Neko Throne $RELEASE_TAG" \
+              --generate-notes \
+              download-artifact/NekoThrone-linux-amd64/* \
+              download-artifact/NekoThrone-windows-amd64/*
+          fi
+
+      - name: 📝 Итоговый отчёт релиза
+        if: success()
+        shell: bash
+        run: echo "### 🚀 Релиз опубликован: $RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-artifact@v4.6.2
-        with: { name: debug-symbols, path: debug-symbols.zip }
+        with: { name: debug-symbols, path: debug-symbols.zip, if-no-files-found: ignore }
+

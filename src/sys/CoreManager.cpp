@@ -89,9 +89,10 @@ namespace Configs_sys {
 #elif defined(Q_OS_LINUX)
             platform = "linux-amd64";
 #endif
-            // Fetch latest release info from the correct upstream repository
+            // Downloads Core updates from the upstream release repository (DpaKc404/Neko_Throne).
+            // This fork (rakib34343/Neko_Throne) is used for development and testing only.
             auto resp = Configs_network::NetworkRequestHelper::HttpGet(
-                "https://api.github.com/repos/rakib34343/Neko_Throne/releases/latest");
+                "https://api.github.com/repos/DpaKc404/Neko_Throne/releases/latest");
 
             if (!resp.error.isEmpty()) {
                 QMetaObject::invokeMethod(this, [cb, err = resp.error] {

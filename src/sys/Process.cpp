@@ -11,9 +11,10 @@ namespace Configs_sys {
     CoreProcess::~CoreProcess() {
         if (state() == QProcess::Running) {
             terminate();
-            if (!waitForFinished(3000)) {
+            if (!waitForFinished(2000)) {
                 kill();
-                waitForFinished(1000);
+                if (!waitForFinished(2000))
+                    qWarning() << "CoreProcess: process did not exit after force-kill in destructor";
             }
         }
     }
@@ -21,9 +22,11 @@ namespace Configs_sys {
     void CoreProcess::Kill() {
         if (state() != QProcess::Running) return;
         terminate();
-        if (!waitForFinished(1500)) {
+        if (!waitForFinished(2000)) {
+            qWarning() << "CoreProcess: graceful terminate timed out, force-killing";
             kill();
-            waitForFinished(500);
+            if (!waitForFinished(2000))
+                qWarning() << "CoreProcess: process did not exit after force-kill";
         }
     }
 
@@ -65,7 +68,7 @@ namespace Configs_sys {
         connect(this, &QProcess::stateChanged, this, [this](ProcessState state) {
             if (state == NotRunning) {
                 Configs::dataStore->core_running = false;
-                qDebug() << "Core stated changed to not running";
+                qDebug() << "Core state changed to not running";
             }
 
             if (!Configs::dataStore->prepare_exit && state == NotRunning) {
@@ -107,8 +110,13 @@ namespace Configs_sys {
 
     void CoreProcess::Restart() {
         restarting = true;
-        kill();
-        waitForFinished(1500);
+        terminate();
+        if (!waitForFinished(2000)) {
+            qWarning() << "CoreProcess: graceful terminate timed out during restart, force-killing";
+            kill();
+            if (!waitForFinished(2000))
+                qWarning() << "CoreProcess: process did not exit after force-kill during restart";
+        }
         started = false;
         Start();
         restarting = false;

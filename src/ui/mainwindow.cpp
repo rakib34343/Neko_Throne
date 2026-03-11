@@ -710,6 +710,12 @@ MainWindow::~MainWindow() {
     delete ui;
 }
 
+void MainWindow::changeEvent(QEvent *e) {
+    QMainWindow::changeEvent(e);
+    if (e->type() == QEvent::LanguageChange)
+        ui->retranslateUi(this);
+}
+
 // Group tab manage
 
 inline int tabIndex2GroupId(int index) {

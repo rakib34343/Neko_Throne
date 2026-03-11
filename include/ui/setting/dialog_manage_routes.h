@@ -22,6 +22,9 @@ public:
 
     ~DialogManageRoutes() override;
 
+protected:
+    void changeEvent(QEvent *e) override;
+
 private:
     Ui::DialogManageRoutes *ui;
 

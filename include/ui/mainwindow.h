@@ -53,6 +53,9 @@ public:
 
     void prepare_exit();
 
+protected:
+    void changeEvent(QEvent *e) override;
+
     void refresh_proxy_list(const int &id = -1);
 
     void show_group(int gid);

@@ -17,6 +17,9 @@ public:
 
     ~DialogBasicSettings();
 
+protected:
+    void changeEvent(QEvent *e) override;
+
 public slots:
 
     void accept();

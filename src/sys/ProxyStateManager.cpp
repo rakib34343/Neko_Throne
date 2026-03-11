@@ -7,7 +7,10 @@
 #include "include/api/RPC.h"
 #include "3rdparty/qv2ray/v2/proxy/QvProxyConfigurator.hpp"
 
+#include <QDnsLookup>
+#include <QEventLoop>
 #include <QProcess>
+#include <QTimer>
 #include <QtConcurrent>
 
 // ─── Singleton ───────────────────────────────────────────────────────────────
@@ -212,21 +215,26 @@ bool ProxyStateManager::validateRoutingTable() {
 }
 
 bool ProxyStateManager::validateDNSResolution() {
-    // Quick DNS probe to ensure DNS is not leaking in Block mode,
-    // and is functional in Direct/Proxy modes.
-    QProcess proc;
-#ifdef Q_OS_WIN
-    proc.start(QStringLiteral("nslookup"),
-        {QStringLiteral("dns.google"), QStringLiteral("127.0.0.1")});
-#else
-    proc.start(QStringLiteral("dig"),
-        {QStringLiteral("+short"), QStringLiteral("+time=2"),
-         QStringLiteral("dns.google"), QStringLiteral("@127.0.0.1")});
-#endif
-    proc.waitForFinished(3000);
+    // Use Qt's built-in QDnsLookup for a portable, tool-independent DNS probe.
+    // Avoids any dependency on 'dig' or 'nslookup' system utilities.
+    // NOTE: This function is dispatched exclusively via QtConcurrent::run() inside
+    //       setMode() — it is always called from a worker thread, never the main thread.
+    //       The nested event loop is therefore safe and will not block the UI.
+    QEventLoop loop;
+    QTimer dnsTimeout;
+    dnsTimeout.setSingleShot(true);
+    dnsTimeout.setInterval(5000);
+    QDnsLookup dns;
+    dns.setType(QDnsLookup::A);
+    dns.setName(QStringLiteral("dns.google"));
+    QObject::connect(&dns, &QDnsLookup::finished, &loop, &QEventLoop::quit);
+    QObject::connect(&dnsTimeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    dns.lookup();
+    dnsTimeout.start();
+    loop.exec();
 
-    bool resolved = proc.exitCode() == 0
-                    && !proc.readAllStandardOutput().trimmed().isEmpty();
+    bool resolved = (dns.error() == QDnsLookup::NoError)
+                    && !dns.hostAddressRecords().isEmpty();
 
     switch (m_mode.load(std::memory_order_acquire)) {
     case ProxyMode::Direct:

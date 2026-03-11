@@ -215,6 +215,12 @@ DialogBasicSettings::~DialogBasicSettings() {
     delete ui;
 }
 
+void DialogBasicSettings::changeEvent(QEvent *e) {
+    QDialog::changeEvent(e);
+    if (e->type() == QEvent::LanguageChange)
+        ui->retranslateUi(this);
+}
+
 void DialogBasicSettings::accept() {
     // Common
     bool needChoosePort = false;

@@ -180,6 +180,12 @@ DialogManageRoutes::~DialogManageRoutes() {
     delete ui;
 }
 
+void DialogManageRoutes::changeEvent(QEvent *e) {
+    QDialog::changeEvent(e);
+    if (e->type() == QEvent::LanguageChange)
+        ui->retranslateUi(this);
+}
+
 void DialogManageRoutes::accept() {
     if (chainList.empty()) {
         MessageBoxInfo(tr("Invalid settings"), tr("Routing profile cannot be empty"));
