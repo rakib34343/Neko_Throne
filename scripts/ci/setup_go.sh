@@ -21,7 +21,7 @@ echo "════════════════════════�
 
 # ─── Determine Go version ─────────────────────────────────────────────────────
 if [[ -z "${GO_VERSION:-}" ]]; then
-    # Extract from go.mod: "go 1.25" → "1.25"
+    # Extract from go.mod: "go 1.25.7" → "1.25.7"
     GO_VERSION=$(grep '^go ' "${REPO_ROOT}/core/server/go.mod" | awk '{print $2}')
     echo ">> Go version extracted from go.mod: ${GO_VERSION}"
 fi
