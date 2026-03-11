@@ -19,8 +19,8 @@ on:
 
 env:
   QT_VERSION: "6.10.2"
-  GO_VERSION: "1.25.8"
-  CCACHE_MAXSIZE: 500M
+  GO_VERSION: "1.25.7"
+  CCACHE_MAXSIZE: 5G
   CCACHE_COMPRESS: "true"
   CCACHE_COMPRESSLEVEL: "6"
 
@@ -35,7 +35,6 @@ jobs:
   lint:
     name: 🔍 Линтер кода
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     continue-on-error: true
     permissions: { contents: read }
     steps:
@@ -50,7 +49,6 @@ jobs:
   build:
     name: "${{ matrix.os_label }}"
     permissions: { contents: read }
-    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -207,6 +205,15 @@ jobs:
         shell: bash
         run: ccache -s
 
+      - name: 📝 Итог сборки
+        if: always()
+        shell: bash
+        run: |
+          echo "### 🏗️ Сборка завершена: ${{ matrix.os_label }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Платформа: \`${{ matrix.platform }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Go версия: \`${{ env.GO_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Qt версия: \`${{ env.QT_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+
       # ── Загрузка артефактов ────────────────────────────────────────────
       - name: 📤 Загрузка артефактов
         uses: actions/upload-artifact@v4.6.2
@@ -220,7 +227,6 @@ jobs:
     name: 🚀 Публикация релиза
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     needs: [build]
     permissions: { contents: write, actions: read }
     env:
@@ -242,3 +248,8 @@ jobs:
         run: ./scripts/ci/release_pack.sh
       - uses: actions/upload-artifact@v4.6.2
         with: { name: debug-symbols, path: debug-symbols.zip }
+
+      - name: 📝 Итог публикации
+        if: always()
+        run: |
+          echo "### 🚀 Релиз: ${{ env.INPUT_VERSION }}" >> $GITHUB_STEP_SUMMARY
