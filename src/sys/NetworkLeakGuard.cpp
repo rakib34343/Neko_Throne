@@ -7,8 +7,10 @@
 
 #include <QDnsLookup>
 #include <QEventLoop>
+#include <QHostAddress>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QTimer>
 #include <QtConcurrent>
 
 // ─── Singleton ───────────────────────────────────────────────────────────────
@@ -125,8 +127,8 @@ LeakAuditResult NetworkLeakGuard::auditRoutingTable() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // DNS Leak Audit
 // ═══════════════════════════════════════════════════════════════════════════════
-// Sends a DNS query to an external test resolver and checks whether the
-// response comes from our proxy's DNS or from the system's default resolver.
+// Uses Qt's built-in QDnsLookup for a portable, tool-independent DNS probe.
+// This avoids any dependency on 'dig' or 'nslookup' system utilities.
 
 LeakAuditResult NetworkLeakGuard::auditDNSLeaks() {
     LeakAuditResult r;
@@ -138,19 +140,20 @@ LeakAuditResult NetworkLeakGuard::auditDNSLeaks() {
         return r;
     }
 
-    // Use Qt's built-in QDnsLookup for a portable, tool-independent DNS probe.
-    // This avoids any dependency on 'dig' or 'nslookup' system utilities.
     // NOTE: This function is always called from a QtConcurrent worker thread,
     //       so the nested event loop is safe here.
     QEventLoop loop;
     QTimer dnsTimeout;
     dnsTimeout.setSingleShot(true);
     dnsTimeout.setInterval(5000);
+
     QDnsLookup dns;
     dns.setType(QDnsLookup::A);
     dns.setName(QStringLiteral("whoami.akamai.net"));
+
     QObject::connect(&dns, &QDnsLookup::finished, &loop, &QEventLoop::quit);
     QObject::connect(&dnsTimeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+
     dns.lookup();
     dnsTimeout.start();
     loop.exec();
@@ -169,6 +172,7 @@ LeakAuditResult NetworkLeakGuard::auditDNSLeaks() {
     if (addresses.isEmpty()) {
         r.diagnostics << QStringLiteral("DNS probe: no A records returned for whoami.akamai.net");
     } else {
+        // QDnsHostAddressRecord::value() returns a QHostAddress — requires <QHostAddress>
         r.diagnostics << QStringLiteral("DNS probe resolved: ") + addresses.first().value().toString();
     }
 
@@ -203,7 +207,7 @@ LeakAuditResult NetworkLeakGuard::auditIPv6() {
         // On Windows, check IPv6 routes for a TUN interface using netsh.
         QProcess proc;
         proc.start(QStringLiteral("netsh"),
-            {QStringLiteral("interface"), QStringLiteral("ipv6"),
+            {QStringLiteral("interface"), QStringLiteral("ipv6",
              QStringLiteral("show"), QStringLiteral("route")});
         if (proc.waitForFinished(3000)) {
             auto output = QString::fromUtf8(proc.readAllStandardOutput());
@@ -238,6 +242,7 @@ void NetworkLeakGuard::blockIPv6Leaks() {
         qWarning() << "NetworkLeakGuard: blockIPv6Leaks skipped — not running as administrator";
         return;
     }
+    // Windows: Disable IPv6 on all adapters via registry
     QProcess::execute(QStringLiteral("reg"),
         {QStringLiteral("add"),
          QStringLiteral(R"(HKLM\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters)"),
