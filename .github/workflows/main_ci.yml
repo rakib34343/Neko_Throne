@@ -44,7 +44,10 @@ jobs:
       - run: ./scripts/ci/lint.sh
       - uses: actions/upload-artifact@v7.0.0
         if: always()
-        with: { name: lint-report, path: lint-report/, retention-days: 7 }
+        with:
+          name: lint-report
+          path: lint-report/
+          retention-days: 7
 
   # ─── Проверка Go-кода ─────────────────────────────────────────────────────
   lint-go:
@@ -73,6 +76,125 @@ jobs:
       - name: 🔍 go vet
         working-directory: core/server
         run: go vet ./...
+
+  # ─── Статический анализ + sanitizer-сборка ───────────────────────────────
+  analyze:
+    name: 🔬 Анализ (clang-tidy + ASAN)
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    permissions: { contents: read }
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with: { submodules: recursive }
+
+      - name: 📦 Установка инструментов анализа
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            clang clang-tidy \
+            cmake ninja-build \
+            libx11-dev libx11-xcb-dev libxcb-cursor-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libgl1-mesa-dev libdbus-1-dev libwayland-dev \
+            libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
+            libxcb-randr0-dev libxcb-render-util0-dev libxcb-shape0-dev \
+            libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev
+
+      - name: 🐍 Установка Python для Qt
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.11'
+
+      - name: 🗂️ Кэш Qt (analyze)
+        id: cache-qt-analyze
+        uses: actions/cache@v5.0.3
+        with:
+          path: ~/Qt
+          key: qt-linux-${{ env.QT_VERSION }}-aqt
+
+      - name: 🖼️ Установка Qt via aqt (analyze)
+        if: steps.cache-qt-analyze.outputs.cache-hit != 'true'
+        run: |
+          pip install -r scripts/ci/requirements-qt.txt
+          aqt install-qt linux desktop ${{ env.QT_VERSION }} --outputdir ~/Qt
+
+      - name: 🔧 Настройка окружения Qt (analyze)
+        run: |
+          QT_BASE="$HOME/Qt/${{ env.QT_VERSION }}"
+          if [[ -d "$QT_BASE/gcc_64" ]]; then
+            QT_ROOT="$QT_BASE/gcc_64"
+          elif [[ -d "$QT_BASE/linux_gcc_64" ]]; then
+            QT_ROOT="$QT_BASE/linux_gcc_64"
+          else
+            echo "Qt not found in $QT_BASE"; ls "$QT_BASE" 2>/dev/null; exit 1
+          fi
+          echo "CMAKE_PREFIX_PATH=$QT_ROOT" >> "$GITHUB_ENV"
+          echo "$QT_ROOT/bin" >> "$GITHUB_PATH"
+          echo "LD_LIBRARY_PATH=$QT_ROOT/lib" >> "$GITHUB_ENV"
+
+      - name: 📥 Заглушка Go-артефактов для сборки
+        run: |
+          # Create stub Go artifact directories so cmake/build don't fail on missing files
+          mkdir -p deployment/linux-amd64
+
+      - name: 🔬 Сборка с AddressSanitizer + UBSan
+        run: |
+          mkdir -p build-asan && cd build-asan
+          curl -fLso srslist.h \
+            "https://raw.githubusercontent.com/throneproj/routeprofiles/rule-set/srslist.h"
+
+          cmake .. \
+            -GNinja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            2>&1 | tee ../lint-report/cmake-asan.log || true
+          ninja -j$(nproc) 2>&1 | tee ../lint-report/build-asan.log || true
+        continue-on-error: true
+
+      - name: 🧹 Запуск clang-tidy (из compile_commands.json)
+        run: |
+          mkdir -p lint-report
+          if [[ -f build-asan/compile_commands.json ]]; then
+            echo ">> Running clang-tidy with compile database..."
+            # Collect all project sources (exclude 3rdparty) as a single batch
+            mapfile -d '' TIDY_FILES < <(
+              find src -name '*.cpp' ! -path '*/3rdparty/*' -print0
+            )
+            if command -v run-clang-tidy &>/dev/null; then
+              run-clang-tidy \
+                -p build-asan \
+                -config-file .clang-tidy \
+                -header-filter "$(pwd)/(src|include)/.*" \
+                "${TIDY_FILES[@]}" \
+                2>&1 | tee lint-report/clang-tidy-full.txt || true
+            else
+              # Batch invocation — one clang-tidy call for all files
+              clang-tidy \
+                -p build-asan \
+                --config-file=.clang-tidy \
+                --header-filter="$(pwd)/(src|include)/.*" \
+                "${TIDY_FILES[@]}" \
+                2>&1 | tee lint-report/clang-tidy-full.txt || true
+            fi
+            TIDY_ISSUES=$(grep -c ': warning:\|: error:' lint-report/clang-tidy-full.txt 2>/dev/null || echo 0)
+            echo ">> clang-tidy (full): ${TIDY_ISSUES} diagnostic(s)."
+          else
+            echo ">> compile_commands.json not found — skipping full clang-tidy pass."
+          fi
+        continue-on-error: true
+
+      - name: 📤 Загрузка отчётов анализа
+        uses: actions/upload-artifact@v7.0.0
+        if: always()
+        with:
+          name: analyze-report
+          path: lint-report/
+          retention-days: 7
 
   # ─── Сборка (Go + C++ в одном задании) ────────────────────────────────────
   build:
@@ -154,13 +276,18 @@ jobs:
           $before = @{}
           Get-ChildItem Env: | ForEach-Object { $before[$_.Name] = $_.Value }
 
-          # Run vcvarsall in cmd and capture resulting env via 'set'
-          $lines = cmd /c "`"$vcvarsall`" x64 > NUL 2>&1 && set"
+          # Run vcvarsall: suppress verbose stdout banner; stderr is NOT redirected
+          # so real error messages (wrong arch, missing SDK, etc.) appear in the log.
+          $lines = cmd /c "`"$vcvarsall`" x64 1>NUL && set"
+          if ($LASTEXITCODE -ne 0) {
+            throw "vcvarsall.bat x64 failed with exit code $LASTEXITCODE"
+          }
           foreach ($line in $lines) {
             if ($line -match '^([^=]+)=(.*)$') {
               $n = $Matches[1]; $v = $Matches[2]
               if ($n -ieq 'PATH') {
-                $existing = ($before['PATH'] -split ';')
+                $existingPath = if ($before.ContainsKey('PATH')) { $before['PATH'] } else { '' }
+                $existing = ($existingPath -split ';')
                 ($v -split ';') | Where-Object { $_ -and $_ -notin $existing } |
                   Add-Content $env:GITHUB_PATH
               } elseif (!$before.ContainsKey($n) -or $before[$n] -ne $v) {
@@ -223,7 +350,7 @@ jobs:
       - name: 🖼️ Установка Qt via aqt (Linux)
         if: matrix.os_label == 'linux' && steps.cache-qt-linux.outputs.cache-hit != 'true'
         run: |
-          pip install "aqtinstall==3.3.*" "py7zr==1.0.*"
+          pip install -r scripts/ci/requirements-qt.txt
           aqt install-qt linux desktop ${{ env.QT_VERSION }} --outputdir ~/Qt
 
       - name: 🔧 Настройка окружения Qt (Linux)

@@ -80,9 +80,9 @@ namespace QtGrpc {
         QNetworkReply::NetworkError call(const QString &method, const QString &service, const QByteArray &args, QByteArray &qByteArray, int timeout_ms) {
             QNetworkReply *networkReply = post(method, service, args);
 
-            QTimer *abortTimer = nullptr;
             if (timeout_ms > 0) {
-                abortTimer = new QTimer;
+                // Parent to networkReply: timer is auto-deleted when the reply is deleted.
+                auto *abortTimer = new QTimer(networkReply);
                 abortTimer->setSingleShot(true);
                 abortTimer->setInterval(timeout_ms);
                 QObject::connect(abortTimer, &QTimer::timeout, networkReply, &QNetworkReply::abort);
@@ -93,11 +93,6 @@ namespace QtGrpc {
                 QEventLoop loop;
                 QObject::connect(networkReply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
                 loop.exec();
-            }
-
-            if (abortTimer != nullptr) {
-                abortTimer->stop();
-                abortTimer->deleteLater();
             }
 
             auto grpcStatus = QNetworkReply::NetworkError::ProtocolUnknownError;

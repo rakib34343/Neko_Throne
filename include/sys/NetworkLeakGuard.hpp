@@ -39,7 +39,10 @@ public:
     void runFullAudit();
 
     // ── Start/stop periodic monitoring ──
-    void startMonitoring(int intervalMs = 3000);
+    // intervalMs is clamped to a minimum of 15 000 ms (15 s) regardless of
+    // the value passed in. Default is 30 s, which keeps background CPU usage
+    // negligible while still catching routing-table drift in a reasonable time.
+    void startMonitoring(int intervalMs = 30000);
     void stopMonitoring();
 
     // ── IPv6 leak prevention ──

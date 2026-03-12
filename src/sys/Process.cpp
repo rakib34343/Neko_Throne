@@ -111,6 +111,11 @@ namespace Configs_sys {
         started = true;
         m_state = CoreLifecycleState::Starting;
 
+        // Reset log line counter so each fresh core session starts with a clean slate.
+        // Without this reset, logs become permanently suppressed once the counter
+        // exceeds max_log_line across the lifetime of the process object.
+        logCounter.storeRelaxed(0);
+
         setEnvironment(QProcessEnvironment::systemEnvironment().toStringList());
         start(program, arguments);
     }

@@ -1,0 +1,11 @@
+# scripts/ci/requirements-qt.txt — pip dependencies for Qt installation via aqtinstall
+#
+# Keep these versions pinned to prevent supply-chain surprises in CI.
+# Bump them explicitly and review the changelogs before upgrading:
+#   aqtinstall: https://github.com/miurahr/aqtinstall/releases
+#   py7zr:      https://github.com/miurahr/py7zr/releases
+#
+# aqtinstall 3.3.x is required for Qt 6.8+ support (including 6.10.x).
+# py7zr 1.0.x is the companion archive library used by aqtinstall.
+aqtinstall>=3.3,<3.4
+py7zr>=1.0,<2.0
