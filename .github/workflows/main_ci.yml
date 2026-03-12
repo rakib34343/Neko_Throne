@@ -402,6 +402,13 @@ jobs:
 
           if [[ "${{ matrix.os_label }}" == "windows" ]]; then
             export CMAKE_PREFIX_PATH="$PWD/../qt6/build/lib/cmake"
+            # Use clang-cl (MSVC-driver mode) so CMake sets MSVC=TRUE,
+            # enabling CMAKE_MSVC_RUNTIME_LIBRARY and the /MT static runtime
+            # that matches the statically-built Qt.
+            CMAKE_ARGS+=(
+              -DCMAKE_C_COMPILER=clang-cl
+              -DCMAKE_CXX_COMPILER=clang-cl
+            )
           else
             CMAKE_ARGS+=(-DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++")
           fi
