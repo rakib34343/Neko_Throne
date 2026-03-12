@@ -106,11 +106,21 @@ func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.Err
 	if *in.NeedXray {
 		xrayInstance, err = xray.CreateXrayInstance(*in.XrayConfig)
 		if err != nil {
+			// extraProcess was started above; clean it up before returning.
+			if extraProcess != nil {
+				extraProcess.Stop()
+				extraProcess = nil
+			}
 			return
 		}
 		err = xrayInstance.Start()
 		if err != nil {
 			xrayInstance = nil
+			// extraProcess was started above; clean it up before returning.
+			if extraProcess != nil {
+				extraProcess.Stop()
+				extraProcess = nil
+			}
 			return
 		}
 	}
@@ -208,6 +218,8 @@ func (s *server) Test(ctx context.Context, in *gen.TestReq) (*gen.TestResp, erro
 			}
 			err = xrayTestIntance.Start()
 			if err != nil {
+				// Close the created (but not started) instance to free resources.
+				_ = xrayTestIntance.Close()
 				return nil, err
 			}
 			defer func() {

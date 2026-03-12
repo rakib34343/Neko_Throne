@@ -20,6 +20,12 @@ namespace Stats {
             return;
         }
 
+        // Guard: called from profile_stop even when no profile has ever started;
+        // proxy/direct are nullptr until profile_start sets them.
+        if (!proxy || !direct) {
+            return;
+        }
+
         auto resp = API::defaultClient->QueryStats();
         proxy->uplink_rate = 0;
         proxy->downlink_rate = 0;
