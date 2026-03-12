@@ -43,6 +43,24 @@ void TranslationManager::initialize() {
     m_watcher = new QFileSystemWatcher(this);
     m_watcher->addPath(m_langDir);
     connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, &TranslationManager::rescanLanguages);
+    // Re-add watched paths after rescan (QFileSystemWatcher removes a path after fileChanged).
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, [this] {
+        scanDirectory(); // re-registers new files with the watcher
+    });
+    // Hot-reload the active language when its .qm file is replaced on disk.
+    connect(m_watcher, &QFileSystemWatcher::fileChanged, this, [this](const QString &path) {
+        const QString baseName = QFileInfo(path).completeBaseName();
+        // Re-add the file path since QFileSystemWatcher may drop it after the event.
+        if (!m_watcher->files().contains(path))
+            m_watcher->addPath(path);
+        // If this is the currently active language, reload it.
+        if (!m_currentLocale.isEmpty() && baseName == m_currentLocale) {
+            const QString locale = m_currentLocale;
+            removeCurrentTranslator();
+            m_currentLocale.clear();
+            switchLanguage(locale);
+        }
+    });
 }
 
 QString TranslationManager::translationsPath() const {
@@ -124,6 +142,10 @@ void TranslationManager::scanDirectory() {
         info.displayName = displayNameForLocale(baseName);
         info.filePath = it.filePath();
         m_languages.insert(baseName, info);
+
+        // Watch each .qm file for modifications so they can be hot-reloaded.
+        if (m_watcher && !m_watcher->files().contains(it.filePath()))
+            m_watcher->addPath(it.filePath());
     }
 }
 

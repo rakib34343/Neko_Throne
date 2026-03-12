@@ -23,6 +23,7 @@ env:
   CCACHE_MAXSIZE: 5G
   CCACHE_COMPRESS: "true"
   CCACHE_COMPRESSLEVEL: "6"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

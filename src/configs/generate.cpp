@@ -112,25 +112,61 @@ namespace Configs {
             if (item < 0) continue;
             auto neededEnt = profileManager->GetProfile(item);
             if (neededEnt == nullptr) {
-                ctx->error = "The routing profile is referencing outbounds that no longer exists, consider revising your settings";
+                ctx->error = "The routing profile is referencing outbounds that no longer exist, consider revising your settings";
                 return;
             }
-            if (neededEnt->type == "extracore" || neededEnt->type == "custom" || neededEnt->type == "chain")
+            if (neededEnt->type == "extracore" || neededEnt->type == "custom")
             {
-                ctx->error = "Outbounds used in routing profile cannot be of types extracore, custom or chain";
+                ctx->error = "Outbounds used in routing profile cannot be of types extracore or custom";
                 return;
             }
-            {
-                auto entAddrs = getEntDomains({neededEnt->id}, ctx->error);
-                if (!ctx->error.isEmpty()) return;
-                if (!entAddrs.empty()) {
-                    for (const auto &addr: entAddrs)
-                        preReqs->dnsDeps->directDomains << addr;
-                    preReqs->dnsDeps->needDirectDnsRules = true;
+            if (neededEnt->type == "chain") {
+                auto chain = neededEnt->Chain();
+                if (chain == nullptr || chain->list.isEmpty()) {
+                    ctx->error = "Chain outbound in routing profile is empty or corrupted";
+                    return;
                 }
+                // Validate each hop
+                for (int hopID : chain->list) {
+                    auto hopEnt = profileManager->GetProfile(hopID);
+                    if (hopEnt == nullptr) {
+                        ctx->error = "Chain outbound in routing profile contains a missing profile";
+                        return;
+                    }
+                    if (hopEnt->type == "extracore" || hopEnt->type == "custom" || hopEnt->type == "chain") {
+                        ctx->error = "Chain hops in routing profile cannot be of types extracore, custom or chain";
+                        return;
+                    }
+                    // Collect domains for DNS direct rules
+                    auto addrs = getEntDomains({hopID}, ctx->error);
+                    if (!ctx->error.isEmpty()) return;
+                    if (!addrs.empty()) {
+                        for (const auto &addr : addrs) preReqs->dnsDeps->directDomains << addr;
+                        preReqs->dnsDeps->needDirectDnsRules = true;
+                    }
+                }
+                // Map chain id to tag of the outermost (first-built) hop
+                preReqs->routingDeps->outboundMap[item] = "route-" + Int2String(suffix);
+                // Build reversed hop list (matching main-chain build order: outer first)
+                QList<int> reversedHops;
+                for (int idx = chain->list.size() - 1; idx >= 0; idx--) reversedHops << chain->list[idx];
+                preReqs->routingDeps->routeOutboundGroups << reversedHops;
+                suffix += chain->list.size();
+            } else {
+                // Single-hop outbound (existing logic)
+                {
+                    auto entAddrs = getEntDomains({neededEnt->id}, ctx->error);
+                    if (!ctx->error.isEmpty()) return;
+                    if (!entAddrs.empty()) {
+                        for (const auto &addr: entAddrs)
+                            preReqs->dnsDeps->directDomains << addr;
+                        preReqs->dnsDeps->needDirectDnsRules = true;
+                    }
+                }
+                preReqs->routingDeps->outboundMap[item] = "route-" + Int2String(suffix++);
+                preReqs->routingDeps->neededOutbounds << item;
+                preReqs->routingDeps->routeOutboundGroups << QList<int>{item};
             }
-            preReqs->routingDeps->outboundMap[item] = "route-" + Int2String(suffix++);
-            preReqs->routingDeps->neededOutbounds << item;
         }
 
         for (const auto &item: *neededRuleSets) {
@@ -591,15 +627,15 @@ namespace Configs {
         return {entID};
     }
 
-    void buildOutboundChain(std::shared_ptr<BuildSingBoxConfigContext> &ctx, const QList<int>& entIDs, const QString& prefix, bool includeProxy, bool link, int xrayPort = -1)
+    void buildOutboundChain(std::shared_ptr<BuildSingBoxConfigContext> &ctx, const QList<int>& entIDs, const QString& prefix, bool includeProxy, bool link, int xrayPort = -1, int startSuffix = 0)
     {
         QList<std::shared_ptr<ProxyEntity>> ents;
         entIDListtoEntList(entIDs, ents, ctx->error);
         for (int idx = 0; idx < ents.size(); idx++)
         {
-            auto tag = prefix + "-" + Int2String(idx);
+            auto tag = prefix + "-" + Int2String(startSuffix + idx);
             QString nextTag;
-            if (idx < ents.size() - 1) nextTag = prefix + "-" + Int2String(idx+1);
+            if (idx < ents.size() - 1) nextTag = prefix + "-" + Int2String(startSuffix + idx + 1);
             if (includeProxy && idx == 0) tag = "proxy";
             const auto& ent = ents[idx];
             auto [object, error] = ent->outbound->Build();
@@ -662,7 +698,12 @@ namespace Configs {
         buildOutboundChain(ctx, entIDs, "config", true, true);
 
         // Now, build the outbounds needed by the route profile
-        buildOutboundChain(ctx, ctx->buildPrerequisities->routingDeps->neededOutbounds, "route", false, false);
+        int routeSuffix = 0;
+        for (const auto& group : ctx->buildPrerequisities->routingDeps->routeOutboundGroups) {
+            bool linked = group.size() > 1;
+            buildOutboundChain(ctx, group, "route", false, linked, -1, routeSuffix);
+            routeSuffix += group.size();
+        }
 
         // Add the direct outbound
         ctx->outbounds.append(QJsonObject{

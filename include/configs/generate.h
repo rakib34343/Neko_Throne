@@ -57,6 +57,9 @@ namespace Configs
         QList<int> neededOutbounds;
         QStringList neededRuleSets;
         std::map<int, QString> outboundMap;
+        // Each entry is one routing outbound group.
+        // Single profile -> [[id]]. Chain -> [[outerHop, ..., innerHop]] (reversed, matching existing chain build order).
+        QList<QList<int>> routeOutboundGroups;
     };
 
     class BuildPrerequisities
