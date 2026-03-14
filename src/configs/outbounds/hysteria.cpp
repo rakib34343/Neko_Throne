@@ -123,7 +123,7 @@ namespace Configs {
         }
         outbound::ParseFromClash(object);
 
-        if (!object.ports.empty()) server_ports = portsToPorts(QString::fromStdString(object.ports).split(QRegularExpression("[,/]"), Qt::SkipEmptyParts));
+        if (!object.ports.empty()) server_ports = QString::fromStdString(object.ports).split(QRegularExpression("[,/]"), Qt::SkipEmptyParts);
         auto anyToMbps = [](const QString &s) -> int {
             if (s.isEmpty()) return 0;
 
