@@ -561,6 +561,14 @@ namespace Configs {
             inbounds += inboundObj;
         }
 
+        // dns-in for xray DNS proxy
+        inbounds.prepend(QJsonObject{
+            {"tag", "dns-in"},
+            {"type", "direct"},
+            {"listen", "127.0.0.1"},
+            {"listen_port", dataStore->core_dns_in_port}
+        });
+
         // Hijack
         if (dataStore->enable_redirect && !ctx->forTest) {
             inbounds.prepend(QJsonObject{
@@ -852,9 +860,30 @@ namespace Configs {
     void buildXrayConfig(std::shared_ptr<BuildSingBoxConfigContext> &ctx) {
         if (ctx->xrayOutbounds.isEmpty()) return;
         ctx->buildConfigResult->isXrayNeeded = true;
+        QJsonObject dnsObj;
         QJsonArray inbounds;
         QJsonArray outbounds;
         QJsonArray routeRules;
+        int dnsPort = dataStore->core_dns_in_port;
+
+        if (!ctx->forTest) {
+            dnsObj = {
+                {"servers", QJsonArray{
+                    QJsonObject{
+                        {"address", "127.0.0.1"},
+                        {"port", dnsPort},
+                        {"queryStrategy", "UseIPv4"},
+                        {"skipFallBack", true}
+                    },
+                    QJsonObject{
+                        {"address", "127.0.0.1"},
+                        {"port", dnsPort},
+                        {"queryStrategy", "UseIPv6"},
+                        {"skipFallBack", true}
+                    }
+                }}
+            };
+        }
 
         for (auto [port, outboundObj] : ctx->xrayOutbounds) {
             auto inboundTag = outboundObj["tag"].toString() + "-inbound";
@@ -873,10 +902,25 @@ namespace Configs {
             };
         }
 
+        // Route DNS queries to local sing-box DNS inbound
+        if (!ctx->forTest) {
+            outbounds << QJsonObject{
+                {"tag", "direct"},
+                {"protocol", "freedom"},
+            };
+            routeRules << QJsonObject{
+                {"type", "field"},
+                {"ip", QJsonArray{"127.0.0.1"}},
+                {"port", dnsPort},
+                {"outboundTag", "direct"},
+            };
+        }
+
         ctx->buildConfigResult->xrayConfig["log"] = QJsonObject{
         {"loglevel", dataStore->xray_log_level},
         {"access", dataStore->xray_log_level == "info" ? "" : "none"}
         };
+        if (!ctx->forTest) ctx->buildConfigResult->xrayConfig["dns"] = dnsObj;
         ctx->buildConfigResult->xrayConfig["inbounds"] = inbounds;
         ctx->buildConfigResult->xrayConfig["outbounds"] = outbounds;
         ctx->buildConfigResult->xrayConfig["routing"] = QJsonObject{

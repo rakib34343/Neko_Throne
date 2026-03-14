@@ -558,7 +558,7 @@ void MainWindow::profile_start(int _id) {
         Stats::trafficLooper->proxy = std::make_shared<Stats::TrafficData>("proxy");
         Stats::trafficLooper->direct = std::make_shared<Stats::TrafficData>("direct");
         Stats::trafficLooper->items = result->outboundStats;
-        Stats::trafficLooper->isChain = ent->type == "chain";
+        Stats::trafficLooper->isChain = result->outboundStats.size() > 2; // more than proxy+direct means a real chain
         Stats::trafficLooper->loop_enabled = true;
         Stats::connection_lister->suspend = false;
 

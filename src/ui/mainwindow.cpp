@@ -2153,12 +2153,12 @@ void MainWindow::on_menu_resolve_selected_triggered() {
     for (const auto &profile: profiles) {
         profile->outbound->ResolveDomainToIP([=,this] {
             profile->Save();
+            refresh_proxy_list(profile->id);
             if (--Configs::dataStore->resolve_count != 0) return;
-            refresh_proxy_list();
             mw_sub_updating = false;
         });
     }
-}
+} 
 
 void MainWindow::on_menu_resolve_domain_triggered() {
     auto currGroup = Configs::profileManager->GetGroup(Configs::dataStore->current_group);
@@ -2181,8 +2181,8 @@ void MainWindow::on_menu_resolve_domain_triggered() {
         auto profile = Configs::profileManager->GetProfile(id);
         profile->outbound->ResolveDomainToIP([=,this] {
             profile->Save();
+            refresh_proxy_list(profile->id);
             if (--Configs::dataStore->resolve_count != 0) return;
-            refresh_proxy_list();
             mw_sub_updating = false;
         });
     }

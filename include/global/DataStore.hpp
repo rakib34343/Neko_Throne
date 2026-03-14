@@ -196,6 +196,7 @@ namespace Configs {
         QString xray_log_level = "warning";
         int xray_mux_concurrency = 8;
         bool xray_mux_default_on = false;
+        int core_dns_in_port = 5300;
 
         // Methods
 
