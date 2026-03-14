@@ -758,20 +758,6 @@ namespace Configs {
             routeChain->Rules.prepend(redirRule);
             routeChain->Rules.prepend(sniffRule);
         }
-        // Xray DNS proxy inbound — always add sniff+hijack-dns when Xray DNS proxy inbound is present
-        if (ctx->needsXrayDnsProxy && !ctx->forTest)
-        {
-            auto sniffRule = std::make_shared<RouteRule>();
-            sniffRule->action = "sniff";
-            sniffRule->inbound = {"xray-dns-in"};
-
-            auto redirRule = std::make_shared<RouteRule>();
-            redirRule->action = "hijack-dns";
-            redirRule->inbound = {"xray-dns-in"};
-
-            routeChain->Rules.prepend(redirRule);
-            routeChain->Rules.prepend(sniffRule);
-        }
         if (dataStore->enable_redirect && !ctx->forTest) {
             auto sniffRule = std::make_shared<RouteRule>();
             sniffRule->action = "sniff";
@@ -804,6 +790,20 @@ namespace Configs {
             {"process_path", FindCoreRealPath()},
             {"outbound", "direct"},
         });
+        // xray-dns-in sniff+hijack-dns must come BEFORE the NekoCore.exe process-path rule
+        // so that Xray's DNS queries are intercepted by sing-box DNS engine before the
+        // catch-all direct route fires. Prepend hijack-dns first, then sniff, so the final
+        // order is: [0]=sniff xray-dns-in, [1]=hijack-dns xray-dns-in, [2]=NekoCore.exe->direct.
+        if (ctx->needsXrayDnsProxy && !ctx->forTest) {
+            routeRules.prepend(QJsonObject{
+                {"action", "hijack-dns"},
+                {"inbound", QJsonArray{"xray-dns-in"}},
+            });
+            routeRules.prepend(QJsonObject{
+                {"action", "sniff"},
+                {"inbound", QJsonArray{"xray-dns-in"}},
+            });
+        }
 
         // rulesets
         auto ruleSetArray = QJsonArray();
