@@ -1,6 +1,7 @@
 #include "include/configs/outbounds/xrayVless.h"
 #include "include/configs/sub/clash.hpp"
 
+#include <QJsonArray>
 #include <QUrlQuery>
 
 #include "include/configs/common/utils.h"
