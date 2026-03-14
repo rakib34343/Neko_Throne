@@ -145,6 +145,10 @@ set(PROJECT_SOURCES
         include/configs/sub/GroupUpdater.hpp
         src/configs/sub/GroupUpdater.cpp
 
+        include/configs/sub/clash.hpp
+        include/configs/sub/warp.h
+        src/configs/sub/warp.cpp
+
         include/sys/Process.hpp
         src/sys/Process.cpp
         src/sys/AutoRun.cpp
