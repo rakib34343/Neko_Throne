@@ -70,6 +70,7 @@ namespace Configs_ConfigItem {
             case stringList:
             case integerList:
             case jsonStore:
+            case jsonStoreList:
                 break;
         }
     }
@@ -181,6 +182,9 @@ namespace Configs_ConfigItem {
                         continue;
                     }
                     ((JsonStore *) item->ptr)->FromJson(value.toObject());
+                    break;
+                case itemType::jsonStoreList:
+                    // jsonStoreList deserialization is handled by subclass overrides
                     break;
             }
         }

@@ -146,6 +146,7 @@ set(PROJECT_SOURCES
         src/configs/sub/GroupUpdater.cpp
 
         include/configs/sub/clash.hpp
+        src/configs/sub/clash.cpp
         include/configs/sub/warp.h
         src/configs/sub/warp.cpp
 

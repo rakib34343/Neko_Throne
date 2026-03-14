@@ -254,7 +254,7 @@ namespace Subscription {
             auto out = o.toObject();
             if (out.isEmpty())
             {
-                MW_show_log("invalid outbound of type: " + o.type());
+                MW_show_log(QStringLiteral("invalid outbound of type: ") + QString::number(static_cast<int>(o.type())));
                 continue;
             }
 
