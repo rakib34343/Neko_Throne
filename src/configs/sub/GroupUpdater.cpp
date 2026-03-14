@@ -407,7 +407,7 @@ namespace Subscription {
                 updated_order += ent;
             }
         } catch (const fkyaml::exception &ex) {
-            MessageBoxWarning(tr("Failed to parse Clash YAML"), ex.what());
+            MessageBoxWarning(QObject::tr("Failed to parse Clash YAML"), ex.what());
         }
     }
 

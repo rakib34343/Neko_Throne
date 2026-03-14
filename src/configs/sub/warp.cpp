@@ -1,4 +1,5 @@
 #include <QJsonArray>
+#include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkProxy>
 #include <QNetworkReply>
@@ -6,6 +7,7 @@
 #include <include/configs/sub/warp.h>
 #include <include/global/Configs.hpp>
 #include <QObject>
+#include <QDateTime>
 #include <utility>
 
 
@@ -13,7 +15,11 @@ namespace Configs_network {
     std::shared_ptr<warpConfig> genWarpConfig(QString *error, QString privateKey, QString publicKey) {
         std::shared_ptr<warpConfig> config = std::make_shared<warpConfig>();
 
-        auto OSStr = getOSString();
+#ifdef Q_OS_WIN
+        auto OSStr = QStringLiteral("Windows");
+#else
+        auto OSStr = QStringLiteral("Linux");
+#endif
         QJsonObject payload = {
             {"key", publicKey},
             {"install_id", ""},
@@ -27,15 +33,15 @@ namespace Configs_network {
         QNetworkAccessManager accessManager;
         accessManager.setTransferTimeout(10000);
         request.setUrl(warpApiURL);
-        if (dataStore->net_use_proxy || dataStore->spmode_system_proxy) {
-            if (dataStore->started_id < 0) {
+        if (Configs::dataStore->net_use_proxy || Configs::dataStore->spmode_system_proxy) {
+            if (Configs::dataStore->started_id < 0) {
                 *error = QObject::tr("Request with proxy but no profile started.");
                 return config;
             }
             QNetworkProxy p;
             p.setType(QNetworkProxy::HttpProxy);
-            p.setHostName(dataStore->inbound_address == "::" ? "127.0.0.1" : dataStore->inbound_address);
-            p.setPort(dataStore->inbound_socks_port);
+            p.setHostName(Configs::dataStore->inbound_address == "::" ? "127.0.0.1" : Configs::dataStore->inbound_address);
+            p.setPort(Configs::dataStore->inbound_socks_port);
             accessManager.setProxy(p);
         }
         // Set attribute
